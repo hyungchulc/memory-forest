@@ -1,0 +1,17 @@
+.DS_Store
+.coverage
+.pytest_cache/
+.ruff_cache/
+.venv/
+__pycache__/
+*.egg-info/
+*.py[cod]
+build/
+dist/
+
+# A real forest is private runtime data, not repository content.
+.memory-forest/
+memory-forest-data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

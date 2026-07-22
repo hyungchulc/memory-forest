@@ -1,0 +1,1 @@
+{"schema":"memory-forest-demo-event-v1","event_id":"evt-demo-0001","observed_at":"2042-04-12T09:10:00Z","captured_at":"2042-04-12T09:10:05Z","source":"synthetic Aster Vale Observatory field log","kind":"calibration_result","payload":{"attempt":2,"reference_drift":0.2,"threshold":0.5,"unit":"synthetic-unit","decision":"proceed"},"uncertainty":"one fictional reference cycle"}

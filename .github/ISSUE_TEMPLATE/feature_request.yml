@@ -1,0 +1,19 @@
+name: Feature request
+description: Propose a portable Memory Forest capability
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What agent-memory failure would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Privacy and authority boundary
+      description: How does the proposal stay local, provenance-aware, and non-authoritative?
+    validations:
+      required: true

@@ -1,4 +1,4 @@
 interface:
   display_name: "Memory Forest"
-  short_description: "Build and query a private local Memory Forest"
-  default_prompt: "Use $memory-forest to initialize, audit, or query a private local Memory Forest safely."
+  short_description: "Build and retrieve from a private Memory Forest"
+  default_prompt: "Use $memory-forest to initialize, audit, or retrieve a validated route from a private local Memory Forest safely."

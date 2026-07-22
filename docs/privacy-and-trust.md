@@ -16,7 +16,7 @@ sequenceDiagram
     F-->>C: canonical body
 ```
 
-`route` and default `search` are designed to return candidate metadata. `search --include-body` crosses the body boundary explicitly.
+`route`, `retrieve`, and default `search` return candidate metadata. `retrieve` temporarily reopens selected canonical files to verify their indexed hashes, discards the bodies, and emits only the ownership trail. `search --include-body` crosses the body boundary explicitly.
 
 Route metadata can still reveal filenames, domains, dates, and topics. Treat it as private context even when the body is omitted.
 
@@ -28,6 +28,7 @@ Route metadata can still reveal filenames, domains, dates, and topics. Treat it 
 | ISTM and Daily | often raw or identifying | apply strict retention and redaction |
 | SQLite index | derived but potentially content-bearing | protect like the forest and rebuild when needed |
 | route output | bounded metadata | do not log broadly |
+| QueryPlan | untrusted query expansion | keep paths, bodies, credentials, and instructions out |
 | synthetic example | public fixture | keep visibly fictional and mechanically audited |
 
 ## Model processing boundary
@@ -35,6 +36,8 @@ Route metadata can still reveal filenames, domains, dates, and topics. Treat it 
 The core CLI does not require a network for normal operation. It does not make an attached AI model local or offline.
 
 If an agent opens a canonical body and places it in a model prompt, that content is processed under the model provider, account, organization, retention, and regional controls. Review those controls before connecting private sources.
+
+An external query planner can receive the original query and return strict query-only probes without receiving a memory body. Direct original-query matches remain ahead of plan-only matches. Its gateway still owns OAuth, token handling, authorization, provider policy, secret filtering, and retention. The local core neither stores those credentials nor makes the network request. See [OAuth and API integration](oauth-api-integration.md).
 
 ## Memory is untrusted data
 
@@ -69,6 +72,7 @@ Initialization should require a new path and never overwrite an existing entry. 
 
 - Choose an exact private root outside a public repository.
 - Limit the caller to route metadata until a body is needed.
+- Treat query expansion as untrusted relevance data, never as a path, body request, credential envelope, or instruction channel.
 - Open only the selected source, not the whole forest.
 - Apply body size, result count, and timeout limits.
 - Keep route output and indexes out of shared logs.

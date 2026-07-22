@@ -2,6 +2,8 @@
 
 **A verifiable local memory architecture for long-running AI agents.**
 
+[한국어 README](README.ko.md)
+
 [![CI](https://github.com/hyungchulc/memory-forest/actions/workflows/ci.yml/badge.svg)](https://github.com/hyungchulc/memory-forest/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F.svg)](LICENSE)
@@ -16,15 +18,18 @@ Memory Forest organizes evidence into a numbered filesystem, preserves where cla
 
 Long-running agents usually fail in one of two ways. They keep too little context, or they accumulate an unstructured pile that is difficult to retrieve and impossible to audit. Memory Forest separates source, lifespan, structure, promotion, and retrieval. Capture, readable evidence, working detail, durable knowledge, and long-horizon anchors remain connected by an inspectable provenance path.
 
-The design is built around five properties.
+The design is built around these properties.
 
 - **Canonical local storage** - the operator-selected filesystem owns memory content and provenance, while indexes remain replaceable.
 - **Route-first retrieval** - default queries return relative paths and bounded ranking metadata, not raw private bodies.
+- **Root-first retrieval trails** - `retrieve` ranks bounded lexical matches, materializes each match through the canonical XLTM, LTM, MTM, and STM ownership chain, and returns a freshly hash-checked trail.
 - **Provenance-preserving promotion** - a durable summary keeps a pointer to the evidence that justified it.
 - **Rebuildable derived state** - indexes can be deleted and recreated without changing canonical memory.
 - **Mechanical boundaries** - validators and audits check layer ownership, link direction, path safety, and common public-release mistakes.
 
 The tree is canonical because ownership should be deterministic. Wikilinks preserve the evidence path between adjacent layers. Similarity edges, graph communities, embeddings, and visualizations can still be generated, but they remain disposable derived state instead of silently redefining where a memory belongs.
+
+This connected trail can keep knowledge, dated decisions, explicit responsibilities, projects, and time-bound provenance related without turning those relationships into access authority. Identity and permission policy stay with the integrating application.
 
 ## Architecture
 
@@ -40,13 +45,15 @@ flowchart TB
     mtm -. archive candidate .-> archive
     ltm -. archive candidate .-> archive
 
-    xltm --> route["Root-first route selection"]
+    xltm --> route["Root-first trail materialization"]
     route --> metadata["Relative path metadata"]
     metadata --> open["Explicit canonical source open"]
     open --> verify["Freshness and conflict check"]
 ```
 
-Capture moves upward from recent evidence toward durable structure. The full retrieval method starts at the root map and narrows downward. The v0.1 CLI deliberately implements only a bounded flat FTS candidate search over relative routes and titles, so it does not claim to perform that hierarchy traversal yet. `00 life_archive` is a side archive for reusable history, not a higher truth rank.
+Capture moves upward from recent evidence toward durable structure. The v0.2 `retrieve` command globally ranks bounded lexical evidence, then materializes each candidate in root-first canonical ownership order. It reopens the selected files, verifies their indexed hashes, and returns metadata-only trails. This is not a staged top-down semantic traversal. An XLTM-only lexical match remains a depth-one partial trail instead of fanning out across the whole forest. The existing `route` and `search` commands retain their v0.1 flat-query behavior and JSON boundary. `00 life_archive` is a side archive for reusable history, not a higher truth rank.
+
+![Fictional root-first retrieval trail](docs/assets/memory-forest-retrieval.svg)
 
 See [Architecture](docs/architecture.md) and [Layer contracts](docs/layers.md) for the full model.
 
@@ -90,6 +97,7 @@ memory-forest audit "$demo_root"
 memory-forest index "$demo_root"
 memory-forest route "$demo_root" "instrument calibration"
 memory-forest search "$demo_root" "reference lamp"
+memory-forest retrieve "$demo_root" "telemetry replay"
 ```
 
 Search is metadata-only by default and queries the last built index snapshot. Reading matching bodies is an explicit operation. When a selected canonical file has changed since indexing, body retrieval fails with `index_stale` instead of returning cached text. Rebuild the index after forest changes.
@@ -97,6 +105,29 @@ Search is metadata-only by default and queries the last built index snapshot. Re
 ```sh
 memory-forest search "$demo_root" "reference lamp" --include-body
 ```
+
+### Query expansion without putting a model in the core
+
+The local core does not call a translation, embedding, or model API. A caller may supply a strict QueryPlan containing query strings only. This allows an OAuth-authenticated gateway to expand a Korean, English, mixed-language, or other Unicode query while keeping tokens, filesystem roots, memory bodies, and authorization outside the plan.
+
+```json
+{
+  "schema_version": 1,
+  "probes": [
+    {"query": "mission recovery"},
+    {"query": "telemetry replay"}
+  ]
+}
+```
+
+```sh
+printf '%s' '{"schema_version":1,"probes":[{"query":"mission recovery"}]}' \
+  | memory-forest retrieve "$demo_root" "비상 복원" --query-plan -
+```
+
+Every probe object must contain exactly one `query` field. Paths, bodies, tokens, credentials, provider settings, and all other fields are rejected. The original query is always retained. A trail with direct original-query evidence always ranks ahead of a plan-only trail; accepted probes add recall and ranking evidence only within that boundary. The expansion quality is owned by the caller; SQLite Unicode tokenization and supplied probes do not guarantee semantic retrieval for every language.
+
+See [OAuth and API integration](docs/oauth-api-integration.md), the [QueryPlan schema](docs/query-plan.schema.json), and the [CLI reference](docs/cli.md).
 
 The tracked [synthetic forest](examples/synthetic-forest/INDEX.md) is a human-readable reference. Git does not preserve the private `0700` directory and `0600` file modes required of a runnable forest, so use `init --example` rather than validating the checkout fixture in place. `pwd -P` resolves platform temp-directory aliases before the CLI applies its no-symlink boundary. Remove the temporary demo when you are finished.
 
@@ -106,10 +137,11 @@ See the [CLI reference](docs/cli.md) before integrating the output into another 
 
 The default retrieval boundary is deliberately narrow.
 
-1. A query is evaluated against an exact local forest root.
+1. A query is evaluated against an exact local forest root and its private derived index.
 2. The tool returns bounded route metadata such as layer, relative path, title, and score.
-3. The caller chooses whether to open a canonical file.
-4. Any opened body is handled under the caller's own model, account, retention, and privacy controls.
+3. `retrieve` reopens only the selected trail files to verify current hashes, then discards their bodies before emitting JSON.
+4. The caller separately chooses whether to open a canonical body.
+5. Any opened body is handled under the caller's own model, account, retention, and privacy controls.
 
 The route result is not source truth and does not grant permission. A local SQLite index should be protected like the source forest because it may contain derived text or tokens.
 
@@ -126,7 +158,7 @@ Promotion is an adjacent-layer, evidence-preserving operation.
 
 A promoted record should carry the source pointer, source and capture times, scope, observed fact, derived conclusion, uncertainty, destination, and reason. Promotion does not make a claim true. Mutable facts still require current verification.
 
-The Life Archive arrows above represent selection from structured history, not unrestricted canonical wikilinks. In v0.1, Life Archive links canonically only to adjacent XLTM; nonadjacent evidence remains a plain provenance path.
+The Life Archive arrows above represent selection from structured history, not unrestricted canonical wikilinks. In the current schema, Life Archive links canonically only to adjacent XLTM; nonadjacent evidence remains a plain provenance path.
 
 The reference contracts use parent-first materialization and adjacent-layer links. `audit` requires every LTM, MTM, and STM record to link to its immediate canonical parent. Same-layer lateral wikilinks are rejected so ownership remains mechanically inspectable.
 
@@ -142,9 +174,9 @@ See [Codex Debug Bridge integration](docs/codex-debug-bridge.md).
 
 ## Project status
 
-Memory Forest is alpha software. The v0.1 scope focuses on a deterministic local core, portable contracts, synthetic fixtures, and auditable route-first retrieval. It is suitable for evaluation and adaptation, not unattended high-stakes decision-making.
+Memory Forest is alpha software. The v0.2 scope adds deterministic root-first retrieval and a constrained integration protocol to the local core, portable contracts, synthetic fixtures, and route-first body boundary. It is suitable for evaluation and adaptation, not unattended high-stakes decision-making.
 
-Candidate directions include multilingual routing evaluation, optional ranking adapters, graph visualization as derived state, migration tooling, and stronger provenance integrity checks. These are not release promises. See [Roadmap](docs/roadmap.md).
+Candidate directions include measured multilingual routing evaluation, optional ranking adapters, generated graph views, migration tooling, and stronger provenance integrity checks. These are not release promises. See [Roadmap](docs/roadmap.md).
 
 ## Repository map
 

@@ -31,11 +31,13 @@ The core invariants are these.
 - Symlink traversal and paths that escape the root are rejected.
 - Initialization requires a new path and does not overwrite any existing entry.
 - Route and default search output omit bodies.
+- Root-first retrieval reopens selected files for hash verification but emits no bodies.
 - Body inclusion is explicit.
 - Derived indexes are not canonical and should be protected like the forest.
 - Index queries are snapshot-based; explicit body retrieval reopens selected files and refuses a changed indexed candidate.
 - Memory text is untrusted data and cannot grant authority.
 - Normal CLI operation does not require network access.
+- QueryPlan is a closed query-only protocol; OAuth, credentials, provider settings, authorization, and filesystem-root selection remain outside it.
 - Forest traversal caps files, directories, nesting depth, bytes, links, queries, and results.
 
 ## In-scope vulnerability classes
@@ -71,4 +73,4 @@ git diff --check
 
 Review the staged tree and repository history for private paths, credentials, messages, contact details, logs, and real memory content. A passing pattern audit is not a complete security review.
 
-The v0.1 permission boundary is implemented for macOS and Linux POSIX filesystems. Windows ACL semantics are not supported by this release.
+The v0.2 permission boundary is implemented for macOS and Linux POSIX filesystems. Windows ACL semantics are not supported by this release.

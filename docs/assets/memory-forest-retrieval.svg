@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="410" viewBox="0 0 1200 410" role="img" aria-labelledby="title desc">
+  <title id="title">Fictional Memory Forest root-first retrieval trail</title>
+  <desc id="desc">A query and optional query-only probes identify lexical matches that are materialized through XLTM, mission operations LTM, recovery drill MTM, and telemetry replay STM as metadata-only output. Knowledge, decisions, responsibilities, projects, and time remain connected through provenance rather than access authority.</desc>
+  <rect width="1200" height="410" fill="#f7f4ed"/>
+  <text x="60" y="58" fill="#20222a" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="700">Root-first retrieval</text>
+  <text x="60" y="88" fill="#5c6070" font-family="ui-sans-serif, system-ui, sans-serif" font-size="15">Fictional fixture, canonical owners, metadata-only result</text>
+
+  <g font-family="ui-sans-serif, system-ui, sans-serif">
+    <rect x="60" y="130" width="180" height="104" rx="14" fill="#ffffff" stroke="#a9adbb" stroke-width="2"/>
+    <text x="82" y="162" fill="#20222a" font-size="13" font-weight="700">QUERY</text>
+    <text x="82" y="190" fill="#303340" font-size="17">비상 복원</text>
+    <text x="82" y="216" fill="#5c6070" font-size="13">+ query-only probes</text>
+
+    <path d="M250 182H292" stroke="#4059b5" stroke-width="3" fill="none"/>
+    <path d="M286 174L298 182L286 190" stroke="#4059b5" stroke-width="3" fill="none"/>
+
+    <rect x="306" y="130" width="180" height="104" rx="14" fill="#ffffff" stroke="#4059b5" stroke-width="2"/>
+    <text x="328" y="160" fill="#4059b5" font-size="13" font-weight="700">01 XLTM</text>
+    <text x="328" y="190" fill="#20222a" font-size="17">Root map</text>
+    <text x="328" y="216" fill="#5c6070" font-size="13">trail root</text>
+
+    <path d="M496 182H538" stroke="#4059b5" stroke-width="3" fill="none"/>
+    <path d="M532 174L544 182L532 190" stroke="#4059b5" stroke-width="3" fill="none"/>
+
+    <rect x="552" y="130" width="180" height="104" rx="14" fill="#ffffff" stroke="#4059b5" stroke-width="2"/>
+    <text x="574" y="160" fill="#4059b5" font-size="13" font-weight="700">02 LTM</text>
+    <text x="574" y="190" fill="#20222a" font-size="17">Mission operations</text>
+    <text x="574" y="216" fill="#5c6070" font-size="13">domain owner</text>
+
+    <path d="M742 182H784" stroke="#4059b5" stroke-width="3" fill="none"/>
+    <path d="M778 174L790 182L778 190" stroke="#4059b5" stroke-width="3" fill="none"/>
+
+    <rect x="798" y="130" width="160" height="104" rx="14" fill="#ffffff" stroke="#4059b5" stroke-width="2"/>
+    <text x="820" y="160" fill="#4059b5" font-size="13" font-weight="700">03 MTM</text>
+    <text x="820" y="190" fill="#20222a" font-size="17">Recovery drill</text>
+    <text x="820" y="216" fill="#5c6070" font-size="13">branch owner</text>
+
+    <path d="M968 182H1010" stroke="#4059b5" stroke-width="3" fill="none"/>
+    <path d="M1004 174L1016 182L1004 190" stroke="#4059b5" stroke-width="3" fill="none"/>
+
+    <rect x="1024" y="130" width="136" height="104" rx="14" fill="#4059b5" stroke="#4059b5" stroke-width="2"/>
+    <text x="1046" y="160" fill="#ffffff" font-size="13" font-weight="700">04 STM</text>
+    <text x="1046" y="188" fill="#ffffff" font-size="16">Telemetry</text>
+    <text x="1046" y="210" fill="#ffffff" font-size="16">replay</text>
+
+    <g font-size="13" font-weight="600" text-anchor="middle">
+      <rect x="306" y="270" width="142" height="34" rx="17" fill="#e9ecf7"/><text x="377" y="292" fill="#303340">Knowledge</text>
+      <rect x="458" y="270" width="142" height="34" rx="17" fill="#e9ecf7"/><text x="529" y="292" fill="#303340">Decisions</text>
+      <rect x="610" y="270" width="166" height="34" rx="17" fill="#e9ecf7"/><text x="693" y="292" fill="#303340">Responsibilities</text>
+      <rect x="786" y="270" width="142" height="34" rx="17" fill="#e9ecf7"/><text x="857" y="292" fill="#303340">Projects</text>
+      <rect x="938" y="270" width="142" height="34" rx="17" fill="#e9ecf7"/><text x="1009" y="292" fill="#303340">Time</text>
+    </g>
+    <rect x="306" y="328" width="854" height="48" rx="10" fill="#e9ecf7"/>
+    <text x="330" y="349" fill="#303340" font-size="14">Connected through provenance, never promoted into access authority.</text>
+    <text x="330" y="367" fill="#5c6070" font-size="13">Selected files are hash-checked locally. Output contains trail metadata, never memory bodies.</text>
+  </g>
+</svg>

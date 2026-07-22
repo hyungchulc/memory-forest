@@ -12,11 +12,13 @@ The synthetic example in this repository is fictional and is intended for public
 
 Normal core CLI operation is designed to be network-free. Installation tools, source hosting, package indexes, external adapters, agent runtimes, and model providers have separate network and privacy behavior.
 
+An OAuth or API gateway may supply query-only expansion probes. That gateway owns authentication, authorization, tokens, root mapping, network requests, and retention. The Memory Forest core does not accept those fields in its QueryPlan.
+
 Memory Forest does not make an attached model local. If a caller opens a memory body and submits it to a model, the provider's account, organization, retention, regional, and privacy controls apply.
 
 ## Route-only behavior
 
-`route` and default `search` are designed to return bounded metadata rather than canonical bodies. Body access through `search --include-body` is explicit.
+`route`, `retrieve`, and default `search` return bounded metadata rather than canonical bodies. `retrieve` reopens only selected files for current-hash verification and discards their bodies. Body access through `search --include-body` is explicit.
 
 Metadata can still reveal topics, dates, filenames, and domain names. Protect route output and logs accordingly.
 

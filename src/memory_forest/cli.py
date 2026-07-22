@@ -11,6 +11,7 @@ from .core import audit_forest, doctor_forest, initialize_forest, validate_fores
 from .errors import MemoryForestError
 from .index import index_forest, route_index, search_index
 from .model import SCHEMA_VERSION
+from .retrieval import read_query_plan_source, retrieve_index
 
 
 class JsonArgumentParser(argparse.ArgumentParser):
@@ -93,6 +94,22 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Explicitly include full memory bodies in results.",
     )
+
+    retrieve_parser = commands.add_parser(
+        "retrieve",
+        help="Return a validated root-first structured trail without memory bodies.",
+    )
+    retrieve_parser.add_argument("root", help="Forest root")
+    retrieve_parser.add_argument("query", help="Literal retrieval query")
+    retrieve_parser.add_argument(
+        "--limit", type=int, default=10, help="Trail limit, 1-100"
+    )
+    retrieve_parser.add_argument(
+        "--query-plan",
+        help=(
+            "Strict query-only expansion plan as a regular JSON file, or '-' for stdin"
+        ),
+    )
     return parser
 
 
@@ -115,6 +132,18 @@ def run_command(arguments: argparse.Namespace) -> tuple[dict[str, object], int]:
             arguments.root,
             arguments.query,
             include_body=arguments.include_body,
+            limit=arguments.limit,
+        )
+    elif command == "retrieve":
+        query_plan = (
+            read_query_plan_source(arguments.query_plan, stdin=sys.stdin.buffer)
+            if arguments.query_plan is not None
+            else None
+        )
+        result = retrieve_index(
+            arguments.root,
+            arguments.query,
+            query_plan=query_plan,
             limit=arguments.limit,
         )
     else:

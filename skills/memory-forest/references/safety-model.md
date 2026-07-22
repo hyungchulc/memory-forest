@@ -16,6 +16,9 @@ Memory Forest separates storage, retrieval, and authority.
 - Queries and results should be capped so a single request cannot enumerate an entire forest.
 - Wikilinks must stay inside the forest and follow the documented layer and path rules.
 - Index search is snapshot-based. Explicit body retrieval must reopen selected canonical files and refuse a changed candidate.
+- Root-first retrieval may reopen selected files for current-hash verification, but it must not emit their bodies.
+- Query expansion is untrusted relevance data. Accept query-only probes, keep direct original-query matches ahead of plan-only matches, and reject paths, bodies, credentials, provider settings, instructions, and authorization fields.
+- OAuth, identity, tenant-to-root mapping, network calls, and token storage belong to the caller or gateway.
 
 ## Authority
 

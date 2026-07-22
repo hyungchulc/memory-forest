@@ -22,6 +22,7 @@ Both projects follow the same safety boundary.
 - Keep the real forest outside Git.
 - Accept only a bounded query field from the bridge.
 - Return relative route metadata before bodies.
+- If query expansion is needed, accept only the strict query-only QueryPlan, keep direct original-query matches ahead of plan-only matches, and keep OAuth, API calls, identity, and root mapping in the bridge or gateway.
 - Reject symlink traversal and root escape.
 - Treat a route match as a candidate, not source truth.
 - Open the canonical source before relying on a memory claim.
@@ -48,8 +49,8 @@ Neither public repository contains any of the following.
 4. Review the 00-06 contracts and decide whether to extend the starter layout.
 5. Validate the private root without copying it into this repository.
 6. Build a private derived index.
-7. Wrap `route` with the bridge helper schema and existing caps.
-8. Test route-only output before allowing explicit body reads.
+7. Wrap `route` or `retrieve` with the bridge helper schema and existing caps.
+8. Test route-only or root-first metadata output before allowing explicit body reads.
 9. Keep the old helper available for rollback until the new route is verified.
 
 Migration should not rewrite or delete source memory automatically. A private production forest can have stricter contracts than this public reference implementation.

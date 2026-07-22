@@ -250,3 +250,13 @@ def parse_relative_route(relative: str | PurePosixPath | Path) -> Route:
 
 def layers_are_adjacent(source: Layer, target: Layer) -> bool:
     return abs(source.number - target.number) == 1
+
+
+def immediate_parent_path(route: Route) -> str | None:
+    if route.layer.name == "ltm":
+        return "01 xltm/XLTM.md"
+    if route.layer.name == "mtm" and route.domain:
+        return f"02 ltm/{route.domain}_LTM.md"
+    if route.layer.name == "stm" and route.domain and route.branch:
+        return f"03 mtm/{route.domain}/{route.branch}.md"
+    return None

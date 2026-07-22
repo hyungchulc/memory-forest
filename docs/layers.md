@@ -14,7 +14,7 @@ Do not use Life Archive as a dumping ground or as a replacement for current stat
 
 **Object** - root map and long-horizon anchor.
 
-XLTM owns the top-level domain map, persistent cross-domain invariants, and strong long-horizon preferences or constraints. It is the starting point for root-first retrieval.
+XLTM owns the top-level domain map, persistent cross-domain invariants, and strong long-horizon preferences or constraints. It is the first node in each materialized root-first retrieval trail.
 
 Keep this layer compact. A tactical instruction, one-off fact, or temporary state does not belong here merely because it feels important.
 

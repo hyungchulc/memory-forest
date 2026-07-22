@@ -2,7 +2,7 @@
 
 Memory Forest is an alpha reference implementation. The roadmap describes direction, not delivery commitments.
 
-## v0.1 scope
+## v0.2 scope
 
 - portable 00-06 filesystem contracts
 - deterministic local initializer
@@ -12,21 +12,24 @@ Memory Forest is an alpha reference implementation. The roadmap describes direct
 - explicit body inclusion boundary
 - public-release privacy audit
 - synthetic example forest
+- deterministic XLTM-to-STM root-first retrieval
+- strict query-only expansion protocol
+- caller-owned OAuth and API gateway boundary
+- English and Korean usage documentation
 - standalone documentation and companion skill
 
 ## Candidate next steps
 
 ### Retrieval evaluation
 
-- implement root-first hierarchy traversal beyond the v0.1 flat route index
 - publish synthetic routing fixtures and repeatable quality metrics
-- expand multilingual and mixed-language query coverage
+- expand measured multilingual and mixed-language evaluation beyond the current multiscript regression fixture
 - measure root-first routing separately from body ranking
 - add conflict and stale-source evaluation cases
 
 ### Derived graph views
 
-- generate a read-only graph from canonical paths and adjacent-layer links
+- generate read-only graph views from canonical paths and adjacent-layer links beyond the current static fictional diagram
 - visualize domains, branches, leaves, and promotion provenance
 - keep lateral similarity and community edges outside canonical Markdown
 - make graph generation optional and rebuildable

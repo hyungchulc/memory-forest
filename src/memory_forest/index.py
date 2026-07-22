@@ -11,7 +11,7 @@ from typing import Final, NoReturn
 
 from .core import _read_utf8_file, inspect_forest
 from .errors import MemoryForestError
-from .model import SCHEMA_VERSION
+from .model import SCHEMA_VERSION, immediate_parent_path
 from .safety import (
     DEFAULT_LIMITS,
     ForestLimits,
@@ -22,13 +22,13 @@ from .safety import (
 
 
 INDEX_FILENAME: Final[str] = "index.sqlite3"
-INDEX_SCHEMA_VERSION: Final[str] = "1"
+INDEX_SCHEMA_VERSION: Final[str] = "2"
 _QUERY_TOKEN_RE = re.compile(r"\w+", re.UNICODE)
 _INSERT_DOCUMENT_SQL = (
     "INSERT INTO documents ("
-    "id, path, route_key, layer_number, layer, domain, branch, "
+    "id, path, parent_path, route_key, layer_number, layer, domain, branch, "
     "leaf, title, body, sha256, size, mtime_ns"
-    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 _SCHEMA_SQL = (
     "PRAGMA journal_mode = DELETE;"
@@ -40,6 +40,7 @@ _SCHEMA_SQL = (
     "CREATE TABLE documents ("
     "id INTEGER PRIMARY KEY,"
     "path TEXT NOT NULL UNIQUE,"
+    "parent_path TEXT,"
     "route_key TEXT NOT NULL UNIQUE,"
     "layer_number INTEGER NOT NULL,"
     "layer TEXT NOT NULL,"
@@ -51,6 +52,9 @@ _SCHEMA_SQL = (
     "sha256 TEXT NOT NULL,"
     "size INTEGER NOT NULL,"
     "mtime_ns INTEGER NOT NULL"
+    ");"
+    "CREATE INDEX documents_parent_path ON documents("
+    "parent_path, layer_number, path"
     ");"
     "CREATE VIRTUAL TABLE routes_fts USING fts5("
     "route, title, tokenize = 'unicode61 remove_diacritics 2'"
@@ -102,6 +106,7 @@ def index_forest(
                 (
                     document_id,
                     route.path,
+                    immediate_parent_path(route),
                     route.route_key,
                     route.layer.number,
                     route.layer.name,
@@ -368,6 +373,7 @@ def _verify_schema(connection: sqlite3.Connection) -> None:
         raise MemoryForestError(
             "index_schema_mismatch",
             "The local index schema is unsupported; rebuild the index.",
+            details={"action": "memory-forest index ROOT"},
         )
 
 

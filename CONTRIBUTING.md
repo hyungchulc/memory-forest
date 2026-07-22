@@ -26,6 +26,8 @@ Use Python 3.11 or newer. Keep runtime dependencies at zero unless a reviewed de
 - Keep canonical memory separate from derived indexes.
 - Keep normal CLI operation local and network-free.
 - Return route metadata before bodies.
+- Keep root-first retrieval metadata-only and fail on a stale selected trail.
+- Keep query expansion query-only; OAuth, provider APIs, tokens, and authorization stay outside the core.
 - Make body inclusion explicit.
 - Preserve provenance, uncertainty, parent ownership, and adjacent-layer promotion.
 - Reject symlink traversal and paths outside the selected forest root.
@@ -56,7 +58,7 @@ make check
 git diff --check
 ```
 
-For a CLI behavior change, also perform a clean initialization in a temporary directory, run `doctor`, `validate`, `audit`, `index`, `route`, and metadata-only `search`, then verify that no existing target is overwritten.
+For a CLI behavior change, also perform a clean initialization in a temporary directory, run `doctor`, `validate`, `audit`, `index`, `route`, `retrieve`, and metadata-only `search`, then verify that no existing target is overwritten.
 
 ## Pull requests
 

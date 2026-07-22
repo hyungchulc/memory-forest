@@ -1,0 +1,37 @@
+{
+  "$id": "https://github.com/hyungchulc/memory-forest/blob/main/docs/query-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Structural precheck only. The CLI requires schema_version to use the exact JSON integer token 1 and applies stricter Unicode, uniqueness, byte-size, and configured-limit checks.",
+  "additionalProperties": false,
+  "properties": {
+    "probes": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "probes"
+  ],
+  "title": "Memory Forest QueryPlan",
+  "type": "object"
+}

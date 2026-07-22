@@ -22,15 +22,18 @@ New evidence enters at the source side. Each promotion asks whether the informat
 
 ```mermaid
 flowchart LR
-    Q["Query"] --> X["01 XLTM root map"] --> L["02 LTM domain"] --> M["03 MTM branch"] --> S["04 STM leaf"]
+    Q["Query and optional probes"] --> F["Bounded global lexical ranking"]
+    F --> X["01 XLTM trail root"] --> L["02 LTM domain"] --> M["03 MTM branch"] --> S["04 STM leaf"]
     S --> R["Route metadata"] --> O["Explicit source open"] --> V["Freshness and conflict check"]
     D["05 Daily"] -. chronology fallback .-> O
     I["06 ISTM"] -. exact provenance fallback .-> O
 ```
 
-In the full method, retrieval begins with the root map, narrows to the smallest relevant branch or leaf, and returns a route. Daily and ISTM are chronology and provenance fallbacks when a structured record is not enough.
+Retrieval globally ranks bounded lexical matches, then materializes each selected match from the root map down to the smallest canonical owner. Daily and ISTM are chronology and provenance fallbacks when a structured record is not enough.
 
-The v0.1 reference CLI does not execute that hierarchy traversal. Its `route` command performs a bounded flat FTS query over indexed relative paths and titles, then returns candidate metadata without bodies. A caller that needs root-first reasoning must open and follow the routed canonical owners explicitly.
+The v0.2 `retrieve` operation implements the structured part of this method. Literal matches from the original query and optional validated probes are aggregated into root, domain, branch, and leaf evidence. A trail containing direct original-query evidence always ranks ahead of a plan-only trail. Probes can expand recall and influence ordering within that trust boundary, but cannot override an explicit direct match. Candidate selection is then materialized in canonical order from XLTM through LTM and MTM to STM. An XLTM-only match stays root-only rather than expanding across every domain. A domain or branch with no deeper owner can also produce a partial trail; a complete trail ends at STM. Selected files are reopened and hash-checked before metadata is emitted. Bodies are discarded and never included in `retrieve` output.
+
+`route` remains the v0.1-compatible bounded flat FTS query over relative paths and titles. `search` retains its separate explicit body boundary.
 
 ## Canonical and derived state
 
@@ -40,6 +43,7 @@ The v0.1 reference CLI does not execute that hierarchy traversal. Its `route` co
 | wikilinks and parent paths | canonical ownership graph | validate mechanically |
 | SQLite index | point-in-time derived search snapshot | delete and rebuild after canonical changes |
 | route result | transient candidate metadata | recompute from current forest |
+| root-first trail | transient, hash-validated ownership metadata | recompute from the current index and canonical files |
 | opened body | explicit canonical read with indexed-hash check | handle under caller privacy controls |
 
 An index must never become the only copy of a memory claim. Index failure must not rewrite canonical files.
@@ -52,7 +56,7 @@ A graph is useful for discovery, but it is a weak ownership model when every rel
 2. Which domain and branch own this leaf?
 3. Which adjacent evidence justified its promotion?
 
-Wikilinks make that parent and provenance chain navigable. The v0.1 audit requires each LTM, MTM, and STM document to link to its immediate canonical parent. A derived graph can add lateral similarity, clusters, centrality, or visual navigation without changing the source hierarchy. Delete the graph or index and the canonical forest still explains itself.
+Wikilinks make that parent and provenance chain navigable. The audit requires each LTM, MTM, and STM document to link to its immediate canonical parent. A derived graph can add lateral similarity, clusters, centrality, or visual navigation without changing the source hierarchy. Delete the graph or index and the canonical forest still explains itself.
 
 ## Object ownership
 
@@ -68,6 +72,18 @@ The structured layers use a simple ontology.
 
 New children are materialized parent-first. A leaf should not appear before its branch and domain owners exist. This makes invalid structure detectable without an AI model.
 
+## Connected memory without flattened authority
+
+The canonical trail is deliberately small, but it can preserve connections that matter to an institutional memory system.
+
+- knowledge remains attached to the evidence and domain that own it
+- decisions can remain dated and linked to the source record that justified them
+- owners and responsibilities can be referenced as explicit data without becoming access authority
+- projects can retain their domain, branch, and leaf context instead of becoming isolated summaries
+- time remains recoverable through Daily and ISTM provenance when the structured trail is not enough
+
+Index schema 2 stores each structured document's canonical parent path. The v0.2 result validates those edges and makes the canonical parent-child relationships explicit by index within each returned trail. It does not extract people, infer responsibility, build a hidden organizational profile, or decide access. Richer similarity or relationship graphs remain optional derived state. Permission filtering and identity policy belong to the integrating application and must run before a private body is opened.
+
 ## Link contract
 
 The reference contract keeps canonical structured links adjacent.
@@ -80,7 +96,15 @@ The reference contract keeps canonical structured links adjacent.
 | XLTM | LTM |
 | Life Archive | XLTM |
 
-Life Archive may retain nonadjacent source paths as plain provenance fields, but its canonical wikilinks follow the same numeric adjacency rule and therefore connect only to XLTM in v0.1. Same-layer lateral links are intentionally avoided in canonical memory. Lateral similarity, graph communities, and experimental relationships belong in rebuildable derived state where they cannot silently change source ownership.
+Life Archive may retain nonadjacent source paths as plain provenance fields, but its canonical wikilinks follow the same numeric adjacency rule and therefore connect only to XLTM in the current schema. Same-layer lateral links are intentionally avoided in canonical memory. Lateral similarity, graph communities, and experimental relationships belong in rebuildable derived state where they cannot silently change source ownership.
+
+## Query expansion boundary
+
+The deterministic core does not translate, embed, or call a model. It accepts an optional versioned QueryPlan from a caller. The plan may contain only bounded query strings. Paths, bodies, credentials, provider settings, and instructions are not part of the protocol.
+
+An OAuth or API gateway can generate or obtain those probes, but it remains responsible for identity, authorization, root selection, tokens, network calls, model policy, and retention. The core validates the plan as untrusted data and uses accepted probes only as additive lexical evidence. See [OAuth and API integration](oauth-api-integration.md).
+
+This design can improve cross-language recall when useful translations or variants are supplied. It does not imply universal language understanding. SQLite tokenization, content coverage, morphology, and planner quality remain measurable limits.
 
 ## Trust boundaries
 
@@ -112,7 +136,7 @@ The portable core is designed to fail closed around structure and paths.
 - Preserve conflicts and uncertainty instead of silently overwriting them.
 - Treat audit or validation failure as a reason to stop automation, not as permission to repair content automatically.
 
-The v0.1 filesystem implementation targets macOS and Linux. Its private-mode checks rely on POSIX `0700` directories and `0600` files; Windows ACL behavior is outside this release.
+The v0.2 filesystem implementation targets macOS and Linux. Its private-mode checks rely on POSIX `0700` directories and `0600` files; Windows ACL behavior is outside this release.
 
 ## Scope boundary
 

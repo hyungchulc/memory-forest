@@ -17,6 +17,7 @@ from .model import (
     LAYER_DIRECTORY_NAMES,
     SCHEMA_VERSION,
     Route,
+    immediate_parent_path,
     layers_are_adjacent,
     parse_relative_route,
 )
@@ -36,6 +37,8 @@ from .safety import (
 
 CONFIG_FILENAME: Final[str] = "forest.json"
 WIKILINK_RE: Final[re.Pattern[str]] = re.compile(r"\[\[([^\]\n]+)\]\]")
+DEFAULT_QUERY_PLAN_MAX_PROBES: Final[int] = 8
+MAX_QUERY_PLAN_PROBES: Final[int] = 16
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +102,11 @@ class Inspection:
                 "warnings": warning_count,
             },
         }
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalConfig:
+    query_plan_max_probes: int = DEFAULT_QUERY_PLAN_MAX_PROBES
 
 
 def initialize_forest(
@@ -334,6 +342,37 @@ def doctor_forest(root: str | os.PathLike[str]) -> dict[str, object]:
     }
 
 
+def load_retrieval_config(
+    root: str | os.PathLike[str],
+    *,
+    limits: ForestLimits = DEFAULT_LIMITS,
+) -> RetrievalConfig:
+    root_path = require_real_root(root)
+    state_path = root_path / STATE_DIRECTORY
+    config_path = state_path / CONFIG_FILENAME
+    if not _mode_is(state_path, 0o700, directory=True):
+        raise MemoryForestError(
+            "state_permissions",
+            "The derived-state directory must exist with mode 0700.",
+            details={"path": STATE_DIRECTORY},
+        )
+    if not _mode_is(config_path, 0o600, directory=False):
+        raise MemoryForestError(
+            "not_initialized",
+            "The forest configuration is missing or not private.",
+            details={"path": f"{STATE_DIRECTORY}/{CONFIG_FILENAME}"},
+        )
+    try:
+        parsed = _load_strict_json(_read_utf8_file(config_path, limits=limits))
+    except (json.JSONDecodeError, RecursionError, ValueError) as exc:
+        raise MemoryForestError(
+            "invalid_config",
+            "The forest configuration is not valid JSON.",
+            details={"path": f"{STATE_DIRECTORY}/{CONFIG_FILENAME}"},
+        ) from exc
+    return _parse_forest_config(parsed)
+
+
 def _empty_documents() -> dict[str, str]:
     return {
         "01 xltm/XLTM.md": (
@@ -355,18 +394,38 @@ def _example_documents() -> dict[str, str]:
         "01 xltm/XLTM.md": (
             "# Memory Forest\n\n"
             "## Domains\n\n"
+            "- [[../02 ltm/mission-operations_LTM.md]]\n"
             "- [[../02 ltm/research-notes_LTM.md]]\n"
+        ),
+        "02 ltm/mission-operations_LTM.md": (
+            "# Mission operations\n\n"
+            "Parent: [[../01 xltm/XLTM.md]]\n\n"
+            "Active branch: [[../03 mtm/mission-operations/recovery-drill.md]]\n"
         ),
         "02 ltm/research-notes_LTM.md": (
             "# Research notes\n\n"
             "Parent: [[../01 xltm/XLTM.md]]\n\n"
             "Active branch: [[../03 mtm/research-notes/observatory-trial.md]]\n"
         ),
+        "03 mtm/mission-operations/recovery-drill.md": (
+            "# Recovery drill\n\n"
+            "Parent: [[../../02 ltm/mission-operations_LTM.md]]\n\n"
+            "Detail: [[../../04 stm/mission-operations/recovery-drill/"
+            "telemetry-replay.md]]\n"
+        ),
         "03 mtm/research-notes/observatory-trial.md": (
             "# Observatory trial\n\n"
             "Parent: [[../../02 ltm/research-notes_LTM.md]]\n\n"
             "Detail: [[../../04 stm/research-notes/observatory-trial/"
             "instrument-calibration.md]]\n"
+        ),
+        "04 stm/mission-operations/recovery-drill/telemetry-replay.md": (
+            "# Telemetry replay\n\n"
+            "Parent: [[../../../03 mtm/mission-operations/recovery-drill.md]]\n\n"
+            "The fictional crew replays buffered telemetry before a recovery decision.\n\n"
+            "Synthetic retrieval cues: 임무 복구, ミッション復旧, "
+            "استعادة المهمة, résumé opérationnel.\n\n"
+            "Daily evidence: [[../../../05 daily/2042-04-12.md]]\n"
         ),
         "04 stm/research-notes/observatory-trial/instrument-calibration.md": (
             "# Instrument calibration\n\n"
@@ -376,7 +435,9 @@ def _example_documents() -> dict[str, str]:
         ),
         "05 daily/2042-04-12.md": (
             "# Daily source, 2042-04-12\n\n"
-            "Structured detail: [[../04 stm/research-notes/observatory-trial/"
+            "Mission detail: [[../04 stm/mission-operations/recovery-drill/"
+            "telemetry-replay.md]]\n\n"
+            "Research detail: [[../04 stm/research-notes/observatory-trial/"
             "instrument-calibration.md]]\n\n"
             "Raw event: [[../06 istm/events.jsonl]]\n"
         ),
@@ -442,8 +503,8 @@ def _state_issues(root: Path, *, limits: ForestLimits) -> list[Issue]:
         )
         return issues
     try:
-        parsed = json.loads(_read_utf8_file(config, limits=limits))
-    except (MemoryForestError, json.JSONDecodeError):
+        parsed = _load_strict_json(_read_utf8_file(config, limits=limits))
+    except (MemoryForestError, json.JSONDecodeError, RecursionError, ValueError):
         issues.append(
             Issue(
                 code="invalid_config",
@@ -453,21 +514,69 @@ def _state_issues(root: Path, *, limits: ForestLimits) -> list[Issue]:
             )
         )
         return issues
-    expected = {
-        "layout": "layer/domain/branch/leaf",
-        "layers": list(LAYER_DIRECTORY_NAMES),
-        "schema_version": SCHEMA_VERSION,
-    }
-    if parsed != expected:
+    try:
+        _parse_forest_config(parsed)
+    except MemoryForestError as exc:
         issues.append(
             Issue(
-                code="config_mismatch",
+                code=exc.code,
                 level="error",
-                message="The forest configuration does not match this schema.",
+                message=exc.message,
                 path=f"{STATE_DIRECTORY}/{CONFIG_FILENAME}",
             )
         )
     return issues
+
+
+def _parse_forest_config(value: object) -> RetrievalConfig:
+    if not isinstance(value, dict):
+        raise MemoryForestError(
+            "config_mismatch",
+            "The forest configuration does not match this schema.",
+        )
+    required = {
+        "layout": "layer/domain/branch/leaf",
+        "layers": list(LAYER_DIRECTORY_NAMES),
+        "schema_version": SCHEMA_VERSION,
+    }
+    if type(value.get("schema_version")) is not int or any(
+        value.get(key) != expected for key, expected in required.items()
+    ):
+        raise MemoryForestError(
+            "config_mismatch",
+            "The forest configuration does not match this schema.",
+        )
+    if set(value) - {*required, "retrieval"}:
+        raise MemoryForestError(
+            "config_mismatch",
+            "The forest configuration contains unsupported fields.",
+        )
+    if "retrieval" not in value:
+        return RetrievalConfig()
+    retrieval = value["retrieval"]
+    if not isinstance(retrieval, dict) or set(retrieval) != {"query_plan"}:
+        raise MemoryForestError(
+            "invalid_retrieval_config",
+            "The optional retrieval configuration must contain only query_plan.",
+        )
+    query_plan = retrieval["query_plan"]
+    if not isinstance(query_plan, dict) or set(query_plan) != {"max_probes"}:
+        raise MemoryForestError(
+            "invalid_retrieval_config",
+            "The query_plan configuration must contain only max_probes.",
+        )
+    max_probes = query_plan["max_probes"]
+    if (
+        isinstance(max_probes, bool)
+        or not isinstance(max_probes, int)
+        or max_probes < 1
+        or max_probes > MAX_QUERY_PLAN_PROBES
+    ):
+        raise MemoryForestError(
+            "invalid_retrieval_config",
+            "query_plan.max_probes must be an integer from 1 through 16.",
+        )
+    return RetrievalConfig(query_plan_max_probes=max_probes)
 
 
 def _parent_chain_issues(documents: list[Document]) -> list[Issue]:
@@ -541,6 +650,27 @@ def _validate_jsonl(body: str, *, path: str) -> None:
 
 def _reject_json_constant(value: str) -> None:
     raise ValueError(f"non-finite JSON constant: {value}")
+
+
+def _reject_duplicate_json_keys(
+    pairs: list[tuple[str, object]],
+) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+
+def _load_strict_json(body: str) -> object:
+    return json.loads(
+        body,
+        object_pairs_hook=_reject_duplicate_json_keys,
+        parse_constant=_reject_json_constant,
+        parse_float=_parse_json_float,
+        parse_int=_parse_json_int,
+    )
 
 
 def _parse_json_int(value: str) -> int:
@@ -723,7 +853,7 @@ def _audit_wikilinks(
                         target=resolved.route.path,
                     )
                 )
-        required_parent = _immediate_parent_path(source.route)
+        required_parent = immediate_parent_path(source.route)
         if (
             required_parent is not None
             and required_parent in by_path
@@ -787,16 +917,6 @@ def _resolve_wikilink(
             message="A wikilink target resolves to more than one document.",
         )
     return next(iter(matches.values()))
-
-
-def _immediate_parent_path(route: Route) -> str | None:
-    if route.layer.name == "ltm":
-        return "01 xltm/XLTM.md"
-    if route.layer.name == "mtm" and route.domain:
-        return f"02 ltm/{route.domain}_LTM.md"
-    if route.layer.name == "stm" and route.domain and route.branch:
-        return f"03 mtm/{route.domain}/{route.branch}.md"
-    return None
 
 
 def _mode_is(path: Path, mode: int, *, directory: bool) -> bool:

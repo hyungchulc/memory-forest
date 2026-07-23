@@ -1,0 +1,4 @@
+interface:
+  display_name: "Memory Forest Retrieve"
+  short_description: "Require bounded memory consultation before each response"
+  default_prompt: "Use $memory-forest-retrieve to run and verify the metadata-only Memory Forest consultation gate for this turn."

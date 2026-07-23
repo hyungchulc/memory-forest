@@ -1,0 +1,9 @@
+# Replace every /absolute/path/to/... placeholder before installing this file.
+# Keep the log directory private with mode 0700 and pre-create the log as 0600.
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+MEMORY_FOREST_BIN="/absolute/path/to/memory-forest"
+
+# Rebuild the private derived index daily at 03:17 local time.
+17 3 * * * /bin/sh "/absolute/path/to/run-maintenance.sh" "/absolute/path/to/private-forest" >> "/absolute/path/to/private-logs/memory-forest-maintenance.log" 2>&1

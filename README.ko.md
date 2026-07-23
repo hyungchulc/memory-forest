@@ -144,6 +144,47 @@ memory text와 QueryPlan은 모두 untrusted data입니다. 삭제, 공개, 구�
 
 실제 연결 전에는 [Privacy and trust](docs/privacy-and-trust.md), [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md)를 확인하세요.
 
+## 매 turn 메모리 조회를 강제하는 방법
+
+[Memory Forest Retrieve](docs/memory-forest-retrieve.md)는 비어 있지 않은
+user-authored text turn마다 메모리를 먼저 조회해야 하는 assistant를 위한
+별도 integration profile입니다.
+
+예제 gate는 route와 retrieve를 모두 실행하고, 현재 turn에 묶을 수 있는
+metadata-only receipt를 반환합니다. 검색 결과가 0개여도 조회 자체는 성공한
+것으로 처리합니다. Prompt와 companion skill만으로는 실행을 강제할 수
+없습니다. 실제 강제는 host가 response 생성 전에 gate를 등록하고, 그
+turn의 성공 receipt가 없으면 정상 완료를 막는 방식으로 구현해야 합니다.
+
+Gate는 자동 index, repair, 다른 root scan, body 반환, network 호출을 하지
+않습니다. Route와 retrieve metadata도 비공개 untrusted data로 다뤄야
+합니다.
+
+## 자동화
+
+POSIX cron, macOS LaunchAgent, Codex Scheduled Task로 검증과 비공개 파생
+index 재생성을 예약할 수 있습니다.
+
+![자동화된 Memory Forest의 목표 운영 모델](docs/assets/memory-forest-automation.svg)
+
+현재 CLI에는 수집, compact, processed mark, memory promotion 명령이
+없습니다. 그래서 공개 starter에서는 두 lane을 분리했습니다.
+
+- 현재 구현된 deterministic maintenance는 하나의 정확한 비공개 root를
+  잠근 뒤 validate, audit, atomic index rebuild를 수행합니다.
+- semantic promotion은 아직 CLI에 없는 integrator-owned lane입니다.
+  bounded source admission, provenance, conflict 처리, processed-state mark,
+  rollback, accountable review를 별도로 갖춰야 합니다.
+
+저장소에는 공통 maintenance wrapper, crontab 예제, 사용자용 macOS launchd
+template, 범위를 제한한 Codex Scheduled Task prompt가 들어 있습니다.
+사람이 지켜보지 않는 상태로 실행하기 전에
+[Automation guide](docs/automation.md)를 읽으세요.
+
+cron과 launchd는 로컬에서 끝낼 수 있습니다. 반면 Codex task는 선택한
+account와 model processing boundary를 사용합니다. 외부 처리 없이 로컬에만
+남겨야 하는 자료는 이 lane으로 보내면 안 됩니다.
+
 ## 현재 상태
 
 Memory Forest는 alpha software입니다. v0.2는 deterministic local core, root-first retrieval, strict expansion protocol, synthetic multiscript fixture를 제공합니다. unattended high-stakes decision-making 용도로 완성된 제품은 아닙니다.

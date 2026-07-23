@@ -21,3 +21,17 @@ memory-forest retrieve "$demo_root" "임무 복구"
 ```
 
 Remove the temporary forest when you are finished. Do not replace this fixture with real memory. New examples must remain visibly fictional and pass the repository public-release audit.
+
+## Automation
+
+[automation](automation/README.md) contains a lock-protected maintenance
+wrapper, POSIX crontab example, macOS LaunchAgent template, and bounded Codex
+Scheduled Task prompt. These examples validate and rebuild private derived
+state. They do not capture or promote canonical memory.
+
+## Memory Forest Retrieve
+
+[memory-forest-retrieve](memory-forest-retrieve/README.md) contains a
+metadata-only turn gate and advisory system prompt for hosts that require a
+bounded memory consultation before each non-empty user-authored text turn.
+Mechanical enforcement remains the host's responsibility.

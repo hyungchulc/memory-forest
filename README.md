@@ -147,6 +147,21 @@ The route result is not source truth and does not grant permission. A local SQLi
 
 Read [Privacy and trust](docs/privacy-and-trust.md), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md) before connecting a real forest to an agent.
 
+## Required per-turn retrieval
+
+[Memory Forest Retrieve](docs/memory-forest-retrieve.md) is a separate
+caller-owned integration profile for assistants that must consult memory before
+responding to every non-empty user-authored text turn.
+
+Its example gate runs both route and retrieve, returns a metadata-only
+current-turn receipt, and treats zero matches as a successful lookup with no
+evidence. The prompt and companion skill are advisory. Hard enforcement
+requires the host to register the gate before response generation and block
+normal completion without a successful receipt for that exact turn.
+
+The gate never auto-indexes, repairs, scans another root, returns bodies, or
+uses the network. Route and retrieve metadata remain private and untrusted.
+
 ## Provenance and promotion
 
 Promotion is an adjacent-layer, evidence-preserving operation.
@@ -163,6 +178,29 @@ The Life Archive arrows above represent selection from structured history, not u
 The reference contracts use parent-first materialization and adjacent-layer links. `audit` requires every LTM, MTM, and STM record to link to its immediate canonical parent. Same-layer lateral wikilinks are rejected so ownership remains mechanically inspectable.
 
 See [Provenance and promotion](docs/provenance-and-promotion.md).
+
+## Automation
+
+Memory Forest can be validated and reindexed with POSIX cron, a macOS
+LaunchAgent, or a Codex Scheduled Task.
+
+![Target operating model for automated Memory Forest maintenance](docs/assets/memory-forest-automation.svg)
+
+The current CLI does not ingest, compact, mark, or promote memory. The
+automation starter therefore separates two lanes:
+
+- implemented deterministic maintenance, which locks one exact private root,
+  validates and audits it, then atomically rebuilds the derived index
+- future or integrator-owned semantic promotion, which requires bounded source
+  admission, provenance, conflict handling, processed-state marking, rollback,
+  and accountable review
+
+The repository includes a shared maintenance wrapper, a crontab example, a
+per-user macOS launchd template, and a bounded Codex Scheduled Task prompt. Read
+the [Automation guide](docs/automation.md) before enabling unattended runs.
+Cron and launchd can remain local. A Codex task uses the selected account and
+model processing boundary, so do not send strictly local-only evidence through
+that lane.
 
 ## Relationship to Codex Debug Bridge
 
@@ -185,7 +223,10 @@ Candidate directions include measured multilingual routing evaluation, optional 
 | `src/memory_forest/` | local CLI and reference implementation |
 | `docs/` | architecture, contracts, privacy boundary, and integration guidance |
 | `examples/synthetic-forest/` | fictional 00-06 forest with no private identifiers |
+| `examples/automation/` | cron, launchd, and Codex Scheduled Task maintenance examples |
+| `examples/memory-forest-retrieve/` | metadata-only mandatory consultation gate and prompt |
 | `skills/memory-forest/` | companion Codex skill |
+| `skills/memory-forest-retrieve/` | opt-in always-on retrieval integration skill |
 | `tests/` | behavior and regression tests |
 | `scripts/audit_public_release.py` | public-tree secret and identifier audit |
 

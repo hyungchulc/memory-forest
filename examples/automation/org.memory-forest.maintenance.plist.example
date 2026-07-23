@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Pre-create the log directory as 0700 and both log files as 0600. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>org.memory-forest.maintenance</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>/absolute/path/to/run-maintenance.sh</string>
+        <string>/absolute/path/to/private-forest</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>MEMORY_FOREST_BIN</key>
+        <string>/absolute/path/to/memory-forest</string>
+    </dict>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>17</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+    <key>Umask</key>
+    <string>077</string>
+
+    <key>StandardOutPath</key>
+    <string>/absolute/path/to/private-logs/memory-forest-maintenance.log</string>
+    <key>StandardErrorPath</key>
+    <string>/absolute/path/to/private-logs/memory-forest-maintenance.error.log</string>
+</dict>
+</plist>

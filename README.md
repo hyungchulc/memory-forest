@@ -53,6 +53,8 @@ flowchart TB
 
 Capture moves upward from recent evidence toward durable structure. The v0.2 `retrieve` command globally ranks bounded lexical evidence, then materializes each candidate in root-first canonical ownership order. It reopens the selected files, verifies their indexed hashes, and returns metadata-only trails. This is not a staged top-down semantic traversal. An XLTM-only lexical match remains a depth-one partial trail instead of fanning out across the whole forest. The existing `route` and `search` commands retain their v0.1 flat-query behavior and JSON boundary. `00 life_archive` is a side archive for reusable history, not a higher truth rank.
 
+![Memory Forest graph](docs/assets/memory-forest-graph.png)
+
 ![Fictional root-first retrieval trail](docs/assets/memory-forest-retrieval.svg)
 
 See [Architecture](docs/architecture.md) and [Layer contracts](docs/layers.md) for the full model.

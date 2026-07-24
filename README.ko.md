@@ -35,6 +35,8 @@ Memory Forest는 기억을 번호가 붙은 파일 트리에 나눠 저장하고
 
 이 연결 경로는 knowledge, 날짜가 있는 decision, 명시된 responsibility, project, 시간 provenance를 서로 떼어 놓지 않게 합니다. 다만 이런 관계가 access authority가 되는 것은 아닙니다. identity와 permission policy는 연결하는 application이 별도로 적용해야 합니다.
 
+![Memory Forest graph](docs/assets/memory-forest-graph.png)
+
 ![가상의 root-first retrieval 경로](docs/assets/memory-forest-retrieval.svg)
 
 ## 빠른 시작

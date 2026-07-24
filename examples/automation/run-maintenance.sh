@@ -28,18 +28,5 @@ if ! command -v "$memory_forest_bin" >/dev/null 2>&1; then
     exit 69
 fi
 
-lock_path="${forest_root}.maintenance.lock"
-if ! mkdir "$lock_path" 2>/dev/null; then
-    printf '%s\n' "error: could not acquire the external maintenance lock" >&2
-    exit 75
-fi
-
-cleanup() {
-    rmdir "$lock_path" 2>/dev/null || :
-}
-
-trap cleanup 0
-trap 'exit 130' 1 2 15
-
 "$memory_forest_bin" --json index "$forest_root"
 "$memory_forest_bin" --json doctor "$forest_root"

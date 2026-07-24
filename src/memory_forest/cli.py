@@ -12,6 +12,7 @@ from .errors import MemoryForestError
 from .index import index_forest, route_index, search_index
 from .model import SCHEMA_VERSION
 from .retrieval import read_query_plan_source, retrieve_index
+from .writer import apply_daily, promote, read_plan_source
 
 
 class JsonArgumentParser(argparse.ArgumentParser):
@@ -110,6 +111,26 @@ def build_parser() -> argparse.ArgumentParser:
             "Strict query-only expansion plan as a regular JSON file, or '-' for stdin"
         ),
     )
+
+    daily_parser = commands.add_parser(
+        "apply-daily",
+        help="Apply one strict provenance-bound Daily transaction.",
+    )
+    daily_parser.add_argument("root", help="Forest root")
+    daily_parser.add_argument(
+        "plan",
+        help="Private Daily plan JSON file, or '-' for standard input",
+    )
+
+    promote_parser = commands.add_parser(
+        "promote",
+        help="Apply reviewed semantic Daily-to-structured promotions.",
+    )
+    promote_parser.add_argument("root", help="Forest root")
+    promote_parser.add_argument(
+        "plan",
+        help="Private promotion plan JSON file, or '-' for standard input",
+    )
     return parser
 
 
@@ -146,6 +167,12 @@ def run_command(arguments: argparse.Namespace) -> tuple[dict[str, object], int]:
             query_plan=query_plan,
             limit=arguments.limit,
         )
+    elif command == "apply-daily":
+        plan = read_plan_source(arguments.plan, stdin=sys.stdin.buffer)
+        result = apply_daily(arguments.root, plan)
+    elif command == "promote":
+        plan = read_plan_source(arguments.plan, stdin=sys.stdin.buffer)
+        result = promote(arguments.root, plan)
     else:
         raise MemoryForestError(
             "unknown_command",

@@ -2,7 +2,7 @@
 
 All notable changes to Memory Forest are documented in this file. The project follows [Semantic Versioning](https://semver.org/) once a version is released.
 
-## Unreleased
+## 0.3.0 - 2026-07-24
 
 ### Added
 
@@ -14,16 +14,32 @@ All notable changes to Memory Forest are documented in this file. The project fo
   repository-local documentation links
 - scheduler-neutral automation guide with explicit deterministic-maintenance and semantic-promotion boundaries
 - runnable lock-protected maintenance wrapper plus POSIX cron, macOS launchd, and Codex Scheduled Task examples
-- future-state automation diagram showing the implemented index lane and the external reviewed-promotion lane
+- automation diagram separating caller-owned semantic review from the
+  implemented lock-protected writer and index lane
 - regression checks for automation templates, wrapper behavior, and self-contained SVG assets
 - Memory Forest Retrieve integration profile with a metadata-only per-turn gate, advisory system prompt, companion skill, and regression tests
 - companion-project guide separating Codex conversation ingestion, Apple context collection, and retrieval evaluation from the canonical core
 - bounded Daily contract covering stable source identities, compact provenance, cursor commits, verified archival, and fail-closed partial states
+- strict Daily Plan v1 and Promotion Plan v1 protocols with closed objects,
+  bounded unique identifiers and hashes, explicit empty no-op batches, and
+  semantic routes that cannot carry raw paths, layers, or operations
+- local standard-library `apply-daily` and `promote` writers with a shared
+  sibling maintenance lock, parent-first materialization, inert model text,
+  canonical provenance markers, and append-only promoted update blocks
+- deterministic Write Receipt v1 files under private derived state, exact
+  retry idempotency, and rollback of canonical files and the prior index on
+  handled validation, audit, indexing, or receipt-publication failure
+- focused writer tests for creation order, existing leaves, idempotency,
+  source and provenance failures, path safety, locking, rollback, receipts,
+  no-op plans, inert text, and CLI output
 
 ### Changed
 
 - retrieval diagram now uses ASCII-only visible labels and an explicit cross-platform font stack to avoid missing-glyph rendering
 - retrieval evaluation roadmap now points to a dedicated companion Lab while keeping the core route and retrieve contracts authoritative
+- package and CLI version advanced to `0.3.0`
+- automation and promotion documentation now distinguishes semantic plan
+  generation from the implemented deterministic canonical writer
 
 ## 0.2.0 - 2026-07-22
 

@@ -24,7 +24,7 @@ Boundaries
 - Do not edit files under the numbered 00 through 06 layers.
 - Do not repair, compact, mark, classify, promote, publish, delete, or send anything.
 - Do not scan the forest parent, the user home, or any fallback root.
-- Do not bypass the wrapper's external lock.
+- Do not bypass the core maintenance lock.
 - Do not retry automatically after a lock conflict or nonzero exit.
 
 Verification

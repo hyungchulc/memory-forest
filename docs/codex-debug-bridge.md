@@ -5,7 +5,7 @@
 | Project | Responsibility |
 |---|---|
 | Codex Debug Bridge | authenticates and normalizes personal messaging transport, assembles bounded context, and sends it to one selected Codex App task |
-| Memory Forest | structures private evidence, builds local derived indexes, validates layer contracts, and returns route-first retrieval results |
+| Memory Forest | structures private evidence, applies strict reviewed Daily/promotion plans, builds local derived indexes, validates layer contracts, and returns route-first retrieval results |
 
 ## Starter and standalone implementation
 
@@ -36,7 +36,7 @@ Neither public repository contains any of the following.
 - an actual private forest
 - private authority or prompt files
 - user profiles or private route aliases
-- production ranking and promotion automation
+- production ranking, source collection, or unattended semantic-plan generation
 - operational logs or message histories
 - credentials, contacts, attachments, or personal adapters
 - a hosted memory service

@@ -137,6 +137,34 @@ The tracked [synthetic forest](examples/synthetic-forest/INDEX.md) is a human-re
 
 See the [CLI reference](docs/cli.md) before integrating the output into another process.
 
+### Provenance-bound local writes
+
+v0.3 adds two network-free standard-library write commands:
+
+```sh
+chmod 600 daily-plan.json promotion-plan.json
+memory-forest apply-daily "$demo_root" daily-plan.json
+memory-forest promote "$demo_root" promotion-plan.json
+```
+
+`apply-daily` writes only the canonical dated Daily source. `promote` accepts
+semantic domain/branch/leaf routes rather than raw paths, materializes missing
+parents first, maintains adjacent parent/child links, and appends idempotent
+updates to STM leaves. Both commands acquire the same sibling maintenance lock,
+reject symlink and case-fold ambiguity, roll back handled validation/audit/index
+failures, and publish a private receipt only after the new index succeeds.
+Each plan is bound to the stable private `forest_id` created by `init`, so
+replacing a forest at the same pathname fails closed. Empty reviewed arrays
+close as receipt-backed no-ops.
+
+Legacy schema-v1 forests without `forest_id` remain valid for read-only
+validation and retrieval. The v0.3 writers reject them until a supported
+migration assigns an identity; they never edit legacy configuration implicitly.
+
+See [Daily Plan v1](docs/daily-plan.schema.json),
+[Promotion Plan v1](docs/promotion-plan.schema.json), [Write Receipt
+v1](docs/write-receipt.schema.json), and the [CLI reference](docs/cli.md).
+
 ## Route-only privacy boundary
 
 The default retrieval boundary is deliberately narrow.
@@ -207,18 +235,19 @@ See [Provenance and promotion](docs/provenance-and-promotion.md).
 ## Automation
 
 Memory Forest can be validated and reindexed with POSIX cron, a macOS
-LaunchAgent, or a Codex Scheduled Task.
+LaunchAgent, or a Codex Scheduled Task. Reviewed plans can also be applied
+locally with the same sibling maintenance lock.
 
 ![Target operating model for automated Memory Forest maintenance](docs/assets/memory-forest-automation.svg)
 
-The current CLI does not ingest, compact, mark, or promote memory. The
+The core does not collect source systems or decide semantic promotions. The
 automation starter therefore separates two lanes:
 
 - implemented deterministic maintenance, which locks one exact private root,
   validates and audits it, then atomically rebuilds the derived index
-- future or integrator-owned semantic promotion, which requires bounded source
-  admission, provenance, conflict handling, processed-state marking, rollback,
-  and accountable review
+- caller-owned plan generation and review, followed by the implemented
+  `apply-daily` or `promote` transaction writer with provenance binding,
+  rollback, validation, audit, index, and receipt proof
 
 The repository includes a shared maintenance wrapper, a crontab example, a
 per-user macOS launchd template, and a bounded Codex Scheduled Task prompt. Read
@@ -231,13 +260,17 @@ that lane.
 
 [Codex Debug Bridge](https://github.com/hyungchulc/codex-debug-bridge) includes a small `memory-forest-starter` as an onboarding path for a private route-only helper. This repository is the standalone portable reference implementation. It adds the CLI, contracts, audits, synthetic example, documentation, and companion skill.
 
-Neither project contains a real private forest. Neither project includes private prompts, production ranking and promotion automation, operational logs, personal adapters, or user identifiers. The projects can be used independently.
+Neither project contains a real private forest. Neither project includes private prompts, unattended source collection or semantic-plan generation, operational logs, personal adapters, or user identifiers. The projects can be used independently.
 
 See [Codex Debug Bridge integration](docs/codex-debug-bridge.md).
 
 ## Project status
 
-Memory Forest is alpha software. The v0.2 scope adds deterministic root-first retrieval and a constrained integration protocol to the local core, portable contracts, synthetic fixtures, and route-first body boundary. It is suitable for evaluation and adaptation, not unattended high-stakes decision-making.
+Memory Forest is alpha software. The v0.3 scope adds strict receipt-backed Daily
+application and semantic promotion to the deterministic root-first retrieval
+core, portable contracts, synthetic fixtures, and route-first body boundary. It
+is suitable for evaluation and adaptation, not unattended high-stakes
+decision-making.
 
 Candidate directions include measured multilingual routing evaluation, optional ranking adapters, generated graph views, migration tooling, and stronger provenance integrity checks. These are not release promises. See [Roadmap](docs/roadmap.md).
 

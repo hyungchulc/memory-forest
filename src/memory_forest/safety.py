@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import stat
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,10 @@ from .errors import MemoryForestError
 
 
 STATE_DIRECTORY: Final[str] = ".memory-forest"
+RECEIPTS_DIRECTORY: Final[str] = "receipts"
+RECEIPT_NAME_RE: Final[re.Pattern[str]] = re.compile(r"[0-9a-f]{64}\.json")
+MAX_RECEIPTS: Final[int] = 10_000
+MAX_RECEIPT_BYTES: Final[int] = 256 * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -350,18 +355,61 @@ def _validate_state_directory(state: Path) -> None:
             details={"path": str(state)},
         )
     _assert_real(state)
-    allowed = {"forest.json", "index.sqlite3"}
-    for entry in os.scandir(state):
+    allowed = {"forest.json", "index.sqlite3", RECEIPTS_DIRECTORY}
+    with os.scandir(state) as iterator:
+        entries = list(iterator)
+    for entry in entries:
         child = Path(entry.path)
         child_info = entry.stat(follow_symlinks=False)
-        if (
-            entry.name not in allowed
-            or stat.S_ISLNK(child_info.st_mode)
-            or not stat.S_ISREG(child_info.st_mode)
+        if entry.name == RECEIPTS_DIRECTORY:
+            _validate_receipts_directory(child)
+            continue
+        if entry.name not in allowed or stat.S_ISLNK(child_info.st_mode) or not stat.S_ISREG(
+            child_info.st_mode
         ):
             raise MemoryForestError(
                 "unsafe_state_entry",
-                "Derived state may contain only the known regular files.",
+                "Derived state may contain only known files and receipts.",
+                details={"path": str(child)},
+            )
+
+
+def _validate_receipts_directory(receipts: Path) -> None:
+    info = receipts.lstat()
+    if (
+        stat.S_ISLNK(info.st_mode)
+        or not stat.S_ISDIR(info.st_mode)
+        or stat.S_IMODE(info.st_mode) != 0o700
+    ):
+        raise MemoryForestError(
+            "unsafe_receipts_directory",
+            "The receipts directory must be a real private directory.",
+            details={"path": str(receipts)},
+        )
+    _assert_real(receipts)
+    count = 0
+    with os.scandir(receipts) as iterator:
+        entries = list(iterator)
+    for entry in entries:
+        count += 1
+        if count > MAX_RECEIPTS:
+            raise MemoryForestError(
+                "receipt_count_exceeded",
+                "The receipts directory exceeds the supported entry limit.",
+                details={"limit": MAX_RECEIPTS},
+            )
+        child = Path(entry.path)
+        child_info = entry.stat(follow_symlinks=False)
+        if (
+            RECEIPT_NAME_RE.fullmatch(entry.name) is None
+            or stat.S_ISLNK(child_info.st_mode)
+            or not stat.S_ISREG(child_info.st_mode)
+            or stat.S_IMODE(child_info.st_mode) != 0o600
+            or child_info.st_size > MAX_RECEIPT_BYTES
+        ):
+            raise MemoryForestError(
+                "unsafe_receipt_entry",
+                "Receipt entries must be bounded private transaction JSON files.",
                 details={"path": str(child)},
             )
 

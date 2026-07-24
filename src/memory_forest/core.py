@@ -6,6 +6,7 @@ import math
 import os
 import posixpath
 import re
+import secrets
 import sqlite3
 import stat
 from dataclasses import dataclass
@@ -23,6 +24,10 @@ from .model import (
 )
 from .safety import (
     DEFAULT_LIMITS,
+    MAX_RECEIPT_BYTES,
+    MAX_RECEIPTS,
+    RECEIPT_NAME_RE,
+    RECEIPTS_DIRECTORY,
     STATE_DIRECTORY,
     ForestLimits,
     ScanResult,
@@ -39,6 +44,7 @@ CONFIG_FILENAME: Final[str] = "forest.json"
 WIKILINK_RE: Final[re.Pattern[str]] = re.compile(r"\[\[([^\]\n]+)\]\]")
 DEFAULT_QUERY_PLAN_MAX_PROBES: Final[int] = 8
 MAX_QUERY_PLAN_PROBES: Final[int] = 16
+FOREST_ID_RE: Final[re.Pattern[str]] = re.compile(r"[0-9a-f]{32}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +145,7 @@ def initialize_forest(
     state = secure_state_directory(root_path)
     created.append(STATE_DIRECTORY + "/")
     config = {
+        "forest_id": secrets.token_hex(16),
         "layout": "layer/domain/branch/leaf",
         "layers": list(LAYER_DIRECTORY_NAMES),
         "schema_version": SCHEMA_VERSION,
@@ -159,6 +166,7 @@ def initialize_forest(
     return {
         "created": sorted(created),
         "example": example,
+        "forest_id": config["forest_id"],
         "ok": True,
         "operation": "init",
         "permissions": {"directories": "0700", "files": "0600"},
@@ -373,6 +381,47 @@ def load_retrieval_config(
     return _parse_forest_config(parsed)
 
 
+def load_forest_identity(
+    root: str | os.PathLike[str],
+    *,
+    limits: ForestLimits = DEFAULT_LIMITS,
+) -> str:
+    root_path = require_real_root(root)
+    state_path = root_path / STATE_DIRECTORY
+    config_path = state_path / CONFIG_FILENAME
+    if not _mode_is(state_path, 0o700, directory=True):
+        raise MemoryForestError(
+            "state_permissions",
+            "The derived-state directory must exist with mode 0700.",
+            details={"path": STATE_DIRECTORY},
+        )
+    if not _mode_is(config_path, 0o600, directory=False):
+        raise MemoryForestError(
+            "not_initialized",
+            "The forest configuration is missing or not private.",
+            details={"path": f"{STATE_DIRECTORY}/{CONFIG_FILENAME}"},
+        )
+    try:
+        parsed = _load_strict_json(_read_utf8_file(config_path, limits=limits))
+    except (json.JSONDecodeError, RecursionError, ValueError) as exc:
+        raise MemoryForestError(
+            "invalid_config",
+            "The forest configuration is not valid JSON.",
+            details={"path": f"{STATE_DIRECTORY}/{CONFIG_FILENAME}"},
+        ) from exc
+    _parse_forest_config(parsed)
+    assert isinstance(parsed, dict)
+    forest_id = parsed.get("forest_id")
+    if not isinstance(forest_id, str):
+        raise MemoryForestError(
+            "forest_identity_missing",
+            "This forest predates write identities; canonical writes require a "
+            "forest_id created by a supported migration or new initialization.",
+            details={"path": f"{STATE_DIRECTORY}/{CONFIG_FILENAME}"},
+        )
+    return forest_id
+
+
 def _empty_documents() -> dict[str, str]:
     return {
         "01 xltm/XLTM.md": (
@@ -483,6 +532,56 @@ def _state_issues(root: Path, *, limits: ForestLimits) -> list[Issue]:
         ]
     for entry in entries:
         info = entry.stat(follow_symlinks=False)
+        if entry.name == RECEIPTS_DIRECTORY:
+            if (
+                stat.S_ISLNK(info.st_mode)
+                or not stat.S_ISDIR(info.st_mode)
+                or stat.S_IMODE(info.st_mode) != 0o700
+            ):
+                issues.append(
+                    Issue(
+                        code="unsafe_receipts_directory",
+                        level="error",
+                        message="The receipts directory must be a real private directory.",
+                        path=f"{STATE_DIRECTORY}/{RECEIPTS_DIRECTORY}",
+                    )
+                )
+                continue
+            with os.scandir(entry.path) as iterator:
+                receipt_entries = sorted(iterator, key=lambda child: child.name)
+            if len(receipt_entries) > MAX_RECEIPTS:
+                issues.append(
+                    Issue(
+                        code="receipt_count_exceeded",
+                        level="error",
+                        message="The receipts directory exceeds the supported entry limit.",
+                        path=f"{STATE_DIRECTORY}/{RECEIPTS_DIRECTORY}",
+                    )
+                )
+            for receipt_entry in receipt_entries[: MAX_RECEIPTS + 1]:
+                receipt_info = receipt_entry.stat(follow_symlinks=False)
+                if (
+                    RECEIPT_NAME_RE.fullmatch(receipt_entry.name) is None
+                    or stat.S_ISLNK(receipt_info.st_mode)
+                    or not stat.S_ISREG(receipt_info.st_mode)
+                    or stat.S_IMODE(receipt_info.st_mode) != 0o600
+                    or receipt_info.st_size > MAX_RECEIPT_BYTES
+                ):
+                    issues.append(
+                        Issue(
+                            code="unsafe_receipt_entry",
+                            level="error",
+                            message=(
+                                "Receipt entries must be bounded private transaction "
+                                "JSON files."
+                            ),
+                            path=(
+                                f"{STATE_DIRECTORY}/{RECEIPTS_DIRECTORY}/"
+                                f"{receipt_entry.name}"
+                            ),
+                        )
+                    )
+            continue
         if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o600:
             issues.append(
                 Issue(
@@ -539,14 +638,20 @@ def _parse_forest_config(value: object) -> RetrievalConfig:
         "layers": list(LAYER_DIRECTORY_NAMES),
         "schema_version": SCHEMA_VERSION,
     }
-    if type(value.get("schema_version")) is not int or any(
-        value.get(key) != expected for key, expected in required.items()
+    forest_id = value.get("forest_id")
+    invalid_forest_id = forest_id is not None and (
+        not isinstance(forest_id, str) or FOREST_ID_RE.fullmatch(forest_id) is None
+    )
+    if (
+        type(value.get("schema_version")) is not int
+        or invalid_forest_id
+        or any(value.get(key) != expected for key, expected in required.items())
     ):
         raise MemoryForestError(
             "config_mismatch",
             "The forest configuration does not match this schema.",
         )
-    if set(value) - {*required, "retrieval"}:
+    if set(value) - {*required, "forest_id", "retrieval"}:
         raise MemoryForestError(
             "config_mismatch",
             "The forest configuration contains unsupported fields.",

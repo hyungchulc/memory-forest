@@ -49,6 +49,7 @@ The v0.2 `retrieve` operation implements the structured part of this method. Lit
 | numbered forest files | canonical content and provenance | back up as private source data |
 | wikilinks and parent paths | canonical ownership graph | validate mechanically |
 | SQLite index | point-in-time derived search snapshot | delete and rebuild after canonical changes |
+| write receipt | deterministic proof that one exact plan validated, audited, and indexed | retain privately; verify against canonical transaction blocks |
 | route result | transient candidate metadata | recompute from current forest |
 | root-first trail | transient, hash-validated ownership metadata | recompute from the current index and canonical files |
 | opened body | explicit canonical read with indexed-hash check | handle under caller privacy controls |
@@ -147,9 +148,15 @@ The portable core is designed to fail closed around structure and paths.
 - Keep body inclusion explicit.
 - Preserve conflicts and uncertainty instead of silently overwriting them.
 - Treat audit or validation failure as a reason to stop automation, not as permission to repair content automatically.
+- Apply reviewed write plans under one sibling lock, and restore the previous
+  canonical files and index when a handled post-write check fails.
 
-The v0.2 filesystem implementation targets macOS and Linux. Its private-mode checks rely on POSIX `0700` directories and `0600` files; Windows ACL behavior is outside this release.
+The v0.3 filesystem implementation targets macOS and Linux. Its private-mode checks rely on POSIX `0700` directories and `0600` files; Windows ACL behavior is outside this release.
 
 ## Scope boundary
 
-This repository publishes the portable method, CLI, contracts, audits, synthetic example, and companion skill. It does not publish a private production forest, private prompts, private route aliases, user profiles, operational logs, production ranking and promotion automation, or service connectors.
+This repository publishes the portable method, CLI, deterministic canonical
+writer, contracts, audits, synthetic example, and companion skill. It does not
+publish a private production forest, private prompts, private route aliases,
+user profiles, operational logs, unattended source collection, semantic-plan
+generation, production ranking, or service connectors.

@@ -12,7 +12,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from memory_forest.cli import main
-from memory_forest.core import audit_forest, initialize_forest, validate_forest
+from memory_forest.core import (
+    audit_forest,
+    initialize_forest,
+    load_forest_identity,
+    validate_forest,
+)
 from memory_forest.errors import MemoryForestError
 from memory_forest.index import index_forest, route_index, search_index
 from memory_forest.model import (
@@ -412,8 +417,15 @@ class MemoryForestCoreTests(unittest.TestCase):
         self.assertEqual(non_regular.exception.code, "unsafe_query_plan_source")
 
     def test_old_and_optional_retrieval_configs_are_both_valid(self):
-        self.assertTrue(validate_forest(self.root)["ok"])
         config_path = self.root / ".memory-forest" / "forest.json"
+        legacy = json.loads(config_path.read_text(encoding="utf-8"))
+        del legacy["forest_id"]
+        config_path.write_text(
+            json.dumps(legacy, ensure_ascii=False, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.chmod(config_path, 0o600)
+        self.assertTrue(validate_forest(self.root)["ok"])
         config = json.loads(config_path.read_text(encoding="utf-8"))
         config["retrieval"] = {"query_plan": {"max_probes": 1}}
         config_path.write_text(
@@ -433,6 +445,10 @@ class MemoryForestCoreTests(unittest.TestCase):
                 },
             )
         self.assertEqual(captured.exception.code, "invalid_query_plan")
+
+        with self.assertRaises(MemoryForestError) as identity_missing:
+            load_forest_identity(self.root)
+        self.assertEqual(identity_missing.exception.code, "forest_identity_missing")
 
     def test_retrieval_config_rejects_network_and_identity_fields(self):
         config_path = self.root / ".memory-forest" / "forest.json"
@@ -462,6 +478,7 @@ class MemoryForestCoreTests(unittest.TestCase):
         base = json.loads(config_path.read_text(encoding="utf-8"))
         duplicate_retrieval = (
             "{"
+            f'"forest_id":{json.dumps(base["forest_id"])},'
             f'"layout":{json.dumps(base["layout"])},'
             f'"layers":{json.dumps(base["layers"])},'
             '"schema_version":1,'

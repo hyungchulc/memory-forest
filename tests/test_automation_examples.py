@@ -71,7 +71,7 @@ class AutomationExampleTests(unittest.TestCase):
             cwd=REPOSITORY_ROOT,
         )
 
-    def test_maintenance_script_rebuilds_index_and_releases_external_lock(self):
+    def test_maintenance_script_rebuilds_index_and_releases_core_lock(self):
         with tempfile.TemporaryDirectory(dir=REAL_TEMPORARY_ROOT) as raw:
             directory = Path(raw)
             forest = directory / "forest"
@@ -117,8 +117,9 @@ class AutomationExampleTests(unittest.TestCase):
                 env=environment,
                 text=True,
             )
-            self.assertEqual(completed.returncode, 75)
-            self.assertIn("could not acquire", completed.stderr)
+            self.assertNotEqual(completed.returncode, 0)
+            error = json.loads(completed.stdout)
+            self.assertEqual(error["error"]["code"], "maintenance_lock_busy")
             self.assertTrue(lock.is_dir())
             self.assertFalse(
                 (forest / ".memory-forest" / "index.sqlite3").exists()
@@ -173,7 +174,7 @@ class AutomationExampleTests(unittest.TestCase):
             "Do not edit files under the numbered 00 through 06 layers.",
             "Do not repair, compact, mark, classify, promote, publish, delete",
             "Do not scan the forest parent",
-            "Do not bypass the wrapper's external lock.",
+            "Do not bypass the core maintenance lock.",
         ):
             self.assertIn(phrase, body)
 

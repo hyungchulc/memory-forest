@@ -1,13 +1,15 @@
 # Automation
 
-Memory Forest can be checked and reindexed on a schedule, but the current CLI
-does not ingest events, compact evidence, mark source records as processed, or
-promote memories between layers.
+Memory Forest can be checked, written from strict reviewed plans, and reindexed
+locally. The CLI does not collect source systems, decide semantic routes, or
+mark an external source stream as processed; those policy decisions remain
+with the integration that prepares a plan.
 
 > [!IMPORTANT]
-> The examples in this guide automate deterministic validation and derived-index
-> rebuilding only. A scheduler is not a promotion engine. Semantic capture and
-> promotion require a separate, explicitly reviewed integration.
+> The examples in this guide automate deterministic validation, derived-index
+> rebuilding, and deterministic plan application. A scheduler is not a
+> semantic reviewer. Source admission and route selection require an explicitly
+> governed integration; the core verifies and applies only the closed v1 plan.
 
 ![Target operating model for automated Memory Forest maintenance](assets/memory-forest-automation.svg)
 
@@ -23,11 +25,19 @@ The CLI exposes these operations:
 - `route`
 - `search`
 - `retrieve`
+- `apply-daily`
+- `promote`
 
-For recurring maintenance, `index` is the primary operation. It validates the
+For recurring read-only maintenance, `index` is the primary operation. It validates the
 forest, audits canonical parent links, builds a new private SQLite index in a
 temporary file, and atomically replaces the previous derived index only after a
 successful build.
+
+`apply-daily` and `promote` are canonical writers. They accept only strict
+versioned JSON plans, share the sibling maintenance lock, and finish
+validation, audit, atomic index replacement, and a private receipt as one
+handled transaction. They do not call a model or network service and do not
+invent a semantic route.
 
 ```sh
 memory-forest --json index /absolute/path/to/private-forest
@@ -63,18 +73,18 @@ It applies this contract:
 
 1. Require one exact absolute forest root.
 2. Reject a symlink root.
-3. Acquire a sibling lock named `<forest>.maintenance.lock`.
-4. Run `memory-forest --json index ROOT`.
-5. Run `memory-forest --json doctor ROOT`.
-6. Remove the lock on normal exit, failure, or a handled signal.
+3. Run `memory-forest --json index ROOT`, which acquires the shared sibling
+   `<forest>.maintenance.lock` inside the core.
+4. Run `memory-forest --json doctor ROOT` after the index command releases the
+   lock.
 
 The lock is deliberately outside the forest. A lock directory inside
 `.memory-forest` would be inspected as derived state and would make validation
 fail while the job is running.
 
-This lock prevents overlapping copies of the example wrapper. Every external
-writer that changes canonical files must use the same lock. The wrapper cannot
-make an unrelated writer safe by itself.
+The core lock prevents overlapping index operations and both core write
+commands. Every other writer that changes canonical files must use the same
+exact lock. The wrapper cannot make an unrelated writer safe by itself.
 
 If a process crashes, the lock can remain. Verify that no writer or maintenance
 job is still running before removing that exact sibling lock. The example fails
@@ -217,22 +227,35 @@ processing boundary. Do not use it when the source must remain strictly local.
 
 ### Applied semantic promotion
 
-Applied promotion is intentionally not provided as a copy-paste scheduled task.
-Before enabling unattended canonical writes, an integrator must provide and
-test all of the following:
+The core provides the deterministic application boundary:
 
-- bounded source admission and an immutable candidate manifest
-- an external single-writer lock shared by every writer and indexer
-- exact pre-write snapshots of touched files
-- adjacent-layer provenance links
-- a processed-state marker written only after successful validation
-- duplicate and conflicting-retry rejection
-- rollback that leaves the previous canonical state and index usable
-- validation, audit, and index proof from the real root
+```sh
+memory-forest --json apply-daily ROOT daily-plan.json
+memory-forest --json promote ROOT promotion-plan.json
+```
+
+The plans are closed schemas. Daily entries bind stable source record IDs to a
+Daily `result_sha256`. Promotions bind source entry IDs to the sorted unique
+Daily result hashes and provide only a semantic domain/branch/leaf route.
+Paths, layers, operations, credentials, and provider instructions are rejected.
+
+The writer provides the shared lock, path and permission guards, parent-first
+materialization, an external durable journal, recovery after an interrupted
+write once a verified stale lock is cleared, exact transaction blocks,
+rollback for handled validation/audit/index failures, idempotent retry, atomic
+indexing, and a receipt under `.memory-forest/receipts/`.
+
+An unattended integration still owns and must test:
+
+- bounded source admission and its external cursor or processed-state commit
+- model/provider review boundaries, if a model prepares the plan
+- conflict and uncertainty policy before emitting the plan
+- safe handling of private plans and receipt output
 - a separate policy for optional `00 life_archive` selection
 
-The core CLI does not provide that writer or marker. Do not describe a prompt,
-cron entry, or scheduler success as proof that this contract exists.
+Do not describe scheduler success as semantic-review proof. The receipt proves
+that one exact plan was applied and the resulting forest validated, audited,
+and indexed; it does not prove the plan's claims are true.
 
 Read [Provenance and promotion](provenance-and-promotion.md) before building an
 integration.
@@ -244,11 +267,13 @@ integration.
 | Wrapper exits `0` and final `doctor` is `ok:true` | The derived index was rebuilt and the basic local checks passed | Keep the bounded run record |
 | Lock cannot be acquired | Another run may be active or a prior run may have crashed | Skip; inspect the exact process and lock |
 | `index` exits nonzero or returns `ok:false` | Validation, audit, permissions, FTS5, or indexing failed | Stop; do not repair canonical content automatically |
+| `apply-daily` or `promote` returns a receipt | The exact plan completed validation, audit, and atomic indexing | Hash and retain the private receipt; assess claim quality separately |
 | Scheduled task reports success but no file proof exists | Scheduler state only | Inspect the real index timestamp and bounded output |
 | Index schema mismatch after an upgrade | Derived state is stale | Run `doctor`, then rebuild the index |
 
-No scheduler provides exactly-once semantics by itself. Idempotency belongs to
-the job and its source marker contract.
+No scheduler provides exactly-once semantics by itself. The core writer
+provides idempotent plan application, while external source admission and
+cursor commits still belong to the integrating job.
 
 ## Privacy checklist
 

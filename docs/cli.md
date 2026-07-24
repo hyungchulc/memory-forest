@@ -59,6 +59,82 @@ v0.2 uses index schema 2. A v0.1 index fails with `index_schema_mismatch` and th
 
 Do not commit an index created from a real forest. It may contain content-derived tokens or text.
 
+## apply-daily
+
+```sh
+chmod 600 daily-plan.json
+memory-forest apply-daily ROOT daily-plan.json
+printf '%s' "$daily_plan" | memory-forest apply-daily ROOT -
+```
+
+Applies a strict [Daily Plan v1](daily-plan.schema.json) to the canonical
+`05 daily/YYYY-MM-DD.md` source lane. The plan has exactly
+`schema_version`, `forest_id`, `transaction_id`, `date`, `entries`, and
+`provenance`. `forest_id` is the stable 32-character lowercase hexadecimal
+identity created in the forest's private configuration by `init`.
+`transaction_id` is 64 lowercase hexadecimal characters and must equal
+`provenance.batch_id`. Each entry has exactly `entry_id`,
+`source_record_ids`, and `summary`. The writer emits machine-verifiable entry
+markers that bind each entry to `provenance.result_sha256` in canonical Daily.
+
+An empty `entries` array is a valid reviewed no-op. It still validates, audits,
+rebuilds the index, and writes a receipt, while `touched` remains empty.
+
+## promote
+
+```sh
+chmod 600 promotion-plan.json
+memory-forest promote ROOT promotion-plan.json
+printf '%s' "$promotion_plan" | memory-forest promote ROOT -
+```
+
+Applies a reviewed [Promotion Plan v1](promotion-plan.schema.json). Each
+promotion accepts only source Daily entry identifiers, a semantic route
+`{domain, domain_title, branch, branch_title, leaf}`, inert title/content, and
+the confidence enum `low`, `medium`, or `high`. Raw paths, layer names, and
+operations are not part of the protocol.
+
+The writer verifies every source identifier against a canonical Daily machine
+block and requires `provenance.daily_commit_sha256s` to be the sorted unique
+Daily `result_sha256` values bound to those entries. It then creates or updates
+XLTM, LTM, MTM, and STM in parent-first order, adds adjacent parent/child links,
+and appends an idempotent promoted-update block to each leaf. An empty
+`promotions` array with an empty commit list closes as a receipt-backed no-op.
+
+Both write commands use the documented sibling
+`<forest>.maintenance.lock`, reject symlink and case-fold path ambiguity,
+preserve private `0700`/`0600` modes, and keep model-produced text inside
+single-line canonical JSON code blocks. Before a receipt is published, the
+writer completes fresh validation, audit, and atomic indexing. A handled
+post-write failure restores the previous canonical files and index.
+
+Successful output contains exactly these fields:
+
+```json
+{
+  "schema_version": 1,
+  "forest_id": "ffffffffffffffffffffffffffffffff",
+  "ok": true,
+  "operation": "promote",
+  "transaction_id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "already_applied": false,
+  "receipt": ".memory-forest/receipts/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.json",
+  "receipt_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "touched": [
+    "01 xltm/XLTM.md",
+    "02 ltm/field-ops_LTM.md",
+    "03 mtm/field-ops/trial.md",
+    "04 stm/field-ops/trial/result.md"
+  ]
+}
+```
+
+Receipts use [Write Receipt v1](write-receipt.schema.json). They bind the
+operation, transaction, canonical plan digest, changed canonical paths, and
+the successful validation/audit/index summaries. On an exact retry,
+`already_applied` is `true`, `touched` is empty, and the original receipt hash
+is returned.
+
 ## route
 
 ```sh
@@ -139,6 +215,6 @@ Direct Unicode matching and caller-supplied expansion can improve retrieval acro
 - Open a routed file only after resolving it within the selected root.
 - Revalidate the source after concurrent maintenance.
 
-The v0.2 CLI supports macOS and Linux on POSIX filesystems with Unix `0700` and `0600` permission modes. Windows ACL semantics are not implemented.
+The v0.3 CLI supports macOS and Linux on POSIX filesystems with Unix `0700` and `0600` permission modes. Windows ACL semantics are not implemented.
 
 For Codex Debug Bridge, retain its helper request and result schema around the CLI rather than treating terminal output as an authenticated protocol. See [Codex Debug Bridge integration](codex-debug-bridge.md).

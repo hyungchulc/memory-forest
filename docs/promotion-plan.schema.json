@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hyungchulc/memory-forest/blob/main/docs/promotion-plan.schema.json",
+  "title": "Memory Forest Promotion Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "forest_id",
+    "transaction_id",
+    "date",
+    "promotions",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "memory-forest-promotion-plan-v1"
+    },
+    "forest_id": {
+      "$ref": "#/$defs/forest_id"
+    },
+    "transaction_id": {
+      "$ref": "#/$defs/hash"
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "promotions": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_daily_entry_ids",
+          "route",
+          "title",
+          "content",
+          "confidence"
+        ],
+        "properties": {
+          "source_daily_entry_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 128,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/identifier"
+            }
+          },
+          "route": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "domain",
+              "domain_title",
+              "branch",
+              "branch_title",
+              "leaf"
+            ],
+            "properties": {
+              "domain": {
+                "$ref": "#/$defs/slug"
+              },
+              "domain_title": {
+                "$ref": "#/$defs/title"
+              },
+              "branch": {
+                "$ref": "#/$defs/slug"
+              },
+              "branch_title": {
+                "$ref": "#/$defs/title"
+              },
+              "leaf": {
+                "$ref": "#/$defs/slug"
+              }
+            }
+          },
+          "title": {
+            "$ref": "#/$defs/title"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65536
+          },
+          "confidence": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packet_sha256",
+        "result_sha256",
+        "daily_commit_sha256s"
+      ],
+      "properties": {
+        "packet_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "result_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "daily_commit_sha256s": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "forest_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    }
+  }
+}

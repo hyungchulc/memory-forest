@@ -2,7 +2,7 @@
 
 Memory Forest is an alpha reference implementation. The roadmap describes direction, not delivery commitments.
 
-## v0.2 scope
+## v0.3 scope
 
 - portable 00-06 filesystem contracts
 - deterministic local initializer
@@ -17,6 +17,10 @@ Memory Forest is an alpha reference implementation. The roadmap describes direct
 - caller-owned OAuth and API gateway boundary
 - English and Korean usage documentation
 - standalone documentation and companion skill
+- strict provenance-bound Daily Plan and Promotion Plan v1 protocols
+- local network-free `apply-daily` and `promote` transaction writers
+- parent-first LTM/MTM/STM materialization with adjacent parent-child links
+- private write receipts, exact retry idempotency, and handled-failure rollback
 
 ## Candidate next steps
 
@@ -49,7 +53,7 @@ Memory Forest is an alpha reference implementation. The roadmap describes direct
 - incremental integrity checks
 - bounded migration helpers for earlier starter layouts
 - export and restore manifests
-- conflict-aware promotion assistance with explicit review
+- richer conflict-aware plan review helpers outside the deterministic writer
 
 ### Ecosystem adapters
 

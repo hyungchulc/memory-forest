@@ -3,8 +3,8 @@
 These examples schedule deterministic validation and private derived-index
 rebuilding. They do not implement capture or semantic promotion.
 
-- [`run-maintenance.sh`](run-maintenance.sh) provides one bounded, lock-protected
-  maintenance command.
+- [`run-maintenance.sh`](run-maintenance.sh) provides one bounded maintenance
+  command whose `index` operation acquires the core sibling lock.
 - [`crontab.example`](crontab.example) shows a portable daily cron entry.
 - [`org.memory-forest.maintenance.plist.example`](org.memory-forest.maintenance.plist.example)
   shows a per-user macOS LaunchAgent.

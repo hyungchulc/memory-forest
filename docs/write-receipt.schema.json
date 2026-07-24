@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hyungchulc/memory-forest/blob/main/docs/write-receipt.schema.json",
+  "title": "Memory Forest Write Receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit",
+    "date",
+    "forest_id",
+    "index",
+    "ok",
+    "operation",
+    "plan_sha256",
+    "schema_version",
+    "touched",
+    "transaction_id",
+    "validation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "memory-forest-write-receipt-v1"
+    },
+    "forest_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "ok": {
+      "const": true
+    },
+    "operation": {
+      "enum": [
+        "apply-daily",
+        "promote"
+      ]
+    },
+    "transaction_id": {
+      "$ref": "#/$defs/hash"
+    },
+    "plan_sha256": {
+      "$ref": "#/$defs/hash"
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "touched": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "validation": {
+      "$ref": "#/$defs/validation"
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documents",
+        "errors",
+        "links",
+        "ok",
+        "warnings"
+      ],
+      "properties": {
+        "documents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "errors": {
+          "const": 0
+        },
+        "links": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ok": {
+          "const": true
+        },
+        "warnings": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bytes_indexed",
+        "documents",
+        "index"
+      ],
+      "properties": {
+        "bytes_indexed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "documents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "index": {
+          "const": ".memory-forest/index.sqlite3"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documents",
+        "errors",
+        "ok",
+        "warnings"
+      ],
+      "properties": {
+        "documents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "errors": {
+          "const": 0
+        },
+        "ok": {
+          "const": true
+        },
+        "warnings": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

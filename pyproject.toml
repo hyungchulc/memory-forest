@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "memory-forest"
-version = "0.2.0"
+version = "0.3.0"
 description = "A local, provenance-aware memory architecture for long-running AI agents"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -11,6 +11,7 @@ from typing import Final, NoReturn
 
 from .core import _read_utf8_file, inspect_forest
 from .errors import MemoryForestError
+from .locking import maintenance_lock
 from .model import SCHEMA_VERSION, immediate_parent_path
 from .safety import (
     DEFAULT_LIMITS,
@@ -70,6 +71,20 @@ def index_forest(
     *,
     limits: ForestLimits = DEFAULT_LIMITS,
 ) -> dict[str, object]:
+    with maintenance_lock(root) as root_path:
+        return _index_forest_unlocked(
+            root_path,
+            limits=limits,
+            staging_directory=Path(str(root_path) + ".maintenance.lock"),
+        )
+
+
+def _index_forest_unlocked(
+    root: str | os.PathLike[str],
+    *,
+    limits: ForestLimits = DEFAULT_LIMITS,
+    staging_directory: Path,
+) -> dict[str, object]:
     inspection = inspect_forest(root, audit_links=True, limits=limits)
     if not inspection.ok:
         error_codes = sorted(
@@ -82,6 +97,28 @@ def index_forest(
         )
     state = secure_state_directory(inspection.root)
     index_path = state / INDEX_FILENAME
+    staging = Path(os.path.abspath(staging_directory))
+    try:
+        staging_info = staging.lstat()
+        state_info = state.lstat()
+    except OSError as exc:
+        raise MemoryForestError(
+            "unsafe_index_staging",
+            "The index staging directory is unavailable.",
+            details={"reason": exc.__class__.__name__},
+        ) from exc
+    if (
+        staging.parent != inspection.root.parent
+        or Path(os.path.realpath(staging)) != staging
+        or stat.S_ISLNK(staging_info.st_mode)
+        or not stat.S_ISDIR(staging_info.st_mode)
+        or stat.S_IMODE(staging_info.st_mode) != 0o700
+        or staging_info.st_dev != state_info.st_dev
+    ):
+        raise MemoryForestError(
+            "unsafe_index_staging",
+            "The index staging directory must be a real private sibling on the same filesystem.",
+        )
     if os.path.lexists(index_path):
         info = index_path.lstat()
         if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
@@ -90,7 +127,11 @@ def index_forest(
                 "The index path must be a regular file or not exist.",
                 details={"path": str(index_path)},
             )
-    descriptor, raw_temp_path = tempfile.mkstemp(prefix="index-", suffix=".tmp", dir=state)
+    descriptor, raw_temp_path = tempfile.mkstemp(
+        prefix="index-",
+        suffix=".tmp",
+        dir=staging,
+    )
     os.close(descriptor)
     temp_path = Path(raw_temp_path)
     temp_path.unlink()
@@ -170,7 +211,7 @@ def index_forest(
             "The local SQLite FTS5 index could not be built.",
             details={"reason": exc.__class__.__name__},
         ) from exc
-    except Exception:
+    except BaseException:
         if connection is not None:
             connection.close()
         try:

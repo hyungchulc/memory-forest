@@ -39,6 +39,8 @@ The core invariants are these.
 - Normal CLI operation does not require network access.
 - QueryPlan is a closed query-only protocol; OAuth, credentials, provider settings, authorization, and filesystem-root selection remain outside it.
 - Forest traversal caps files, directories, nesting depth, bytes, links, queries, and results.
+- Canonical writers and index rebuilds cooperate through one sibling maintenance lock.
+- Write plans bind to the private stable `forest_id`, so a different forest at the same pathname is rejected.
 
 ## In-scope vulnerability classes
 
@@ -60,6 +62,7 @@ The core invariants are these.
 - a caller deliberately using `--include-body`
 - exposure caused by committing a real forest despite the documented boundary
 - availability or correctness of third-party adapters
+- hostile concurrent mutation by another process running as the same operating-system user, including replacement of a writable ancestor while a command is running; keep the forest under private ancestors and do not run unrelated writers concurrently
 
 ## Maintainer checks
 
@@ -73,4 +76,4 @@ git diff --check
 
 Review the staged tree and repository history for private paths, credentials, messages, contact details, logs, and real memory content. A passing pattern audit is not a complete security review.
 
-The v0.2 permission boundary is implemented for macOS and Linux POSIX filesystems. Windows ACL semantics are not supported by this release.
+The v0.3 permission boundary is implemented for macOS and Linux POSIX filesystems. Windows ACL semantics are not supported by this release.

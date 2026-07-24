@@ -32,7 +32,7 @@ The original query is always probe position zero. A caller may add a strict, ver
 }
 ```
 
-The plan is untrusted input. It must be valid UTF-8 JSON with unique keys; the root object has exactly `schema_version` and `probes`, and every probe has exactly one trimmed NFC `query` string. The parser rejects paths, bodies, credentials, provider configuration, instructions, duplicate probes, unsafe Unicode controls, extra fields, and oversized input. A file plan must be a regular non-symlink file revalidated while opening; standard input is also supported. See the machine-readable [QueryPlan schema](query-plan.schema.json).
+The plan is untrusted input. It must be valid UTF-8 JSON with unique keys; the root object has exactly `schema_version` and `probes`, and every probe has exactly one trimmed NFC `query` string. Paths, bodies, credentials, provider configuration, and instructions are not expressible as separate plan fields; callers must also keep that content out of the query strings themselves. The parser rejects duplicate probes, unsafe Unicode controls, extra fields, and oversized input, but it does not semantically classify otherwise valid query text. A file plan must be a regular non-symlink file revalidated while opening; standard input is also supported. See the machine-readable [QueryPlan schema](query-plan.schema.json).
 
 Probes add lexical evidence only. They do not select a root, open a body, call a model, or provide universal multilingual understanding. The core assigns the original query twice the per-rank weight of a supplied probe, and a trail with any direct original-query hit always ranks before a plan-only trail. Therefore an external planner can improve recall but cannot promote an indirect match above direct lexical evidence.
 
@@ -65,6 +65,8 @@ Before `retrieve` emits metadata, it reopens every unique selected canonical fil
 
 Opening a body is a separate caller decision. `search --include-body` is the CLI's explicit indexed-body operation and performs the same hash check. Integrations should resolve a selected relative path inside the already authorized root, apply authorization and data-handling policy, open only that bounded source, and revalidate after concurrent maintenance. Do not turn a miss or a stale result into a broad parent-directory scan.
 
+`route`, `search`, and `retrieve` only read the selected sources and derived index; they never modify canonical memory. `index` is a separate derived-maintenance command that rebuilds the local SQLite index without rewriting canonical memory files.
+
 ## 7. Freshness, conflicts, no evidence, and chronology fallback
 
 Hash validation proves that a selected structured file matches the indexed snapshot. It does **not** prove that its claim is fresh, correct, or unconflicted. The caller must use source timestamps, provenance, conflict markers, current external verification where needed, and its own adjudication rules. Preserve conflict rather than silently selecting a convenient body.
@@ -83,7 +85,7 @@ Memory Forest core is deliberately provider-neutral and network-free. It does no
 - retain deterministic core routes and canonical trails as inspectable provenance rather than letting a score redefine ownership;
 - label external output as optional ranking evidence, then open bodies only through the explicit boundary above.
 
-This separation also keeps environment-specific alias rules, classification, and hybrid scoring out of the portable public core. An integration may document its own behavior, but it must not represent it as a Memory Forest guarantee. Use [OAuth and API integration](oauth-api-integration.md) for the gateway boundary and [Privacy and trust](privacy-and-trust.md) before connecting real data.
+This separation also keeps environment-specific alias rules, classification, and hybrid scoring out of the portable public core. In particular, the public project includes none of Aria's private production alias maps, query classifiers, embeddings or vector stores, fusion weights, or fallback rules. An integration may document its own behavior, but it must not represent it as a Memory Forest guarantee. Use [OAuth and API integration](oauth-api-integration.md) for the gateway boundary and [Privacy and trust](privacy-and-trust.md) before connecting real data.
 
 ## 9. Evaluate the two questions separately
 

@@ -173,12 +173,12 @@ Gate는 자동 index, repair, 다른 root scan, body 반환, network 호출을 �
 Memory Forest는 canonical layer와 retrieval 계약을 맡고, source 수집과
 retrieval 평가는 목적별 저장소로 분리합니다.
 
-- [Codex ISTM for macOS](https://github.com/hyungchulc/codex-istm-macos)는
-  macOS의 로컬 Codex 대화를 ISTM으로 수집하고, 크기가 제한된 Daily
-  digest와 launchd 예제를 제공합니다.
-- [macOS ISTM Context](https://github.com/hyungchulc/mac-istm-context)는
+- [Codex Context for ISTM](https://github.com/hyungchulc/codex-context-for-istm)는
+  로컬 Codex 대화를 ISTM으로 수집하고, 크기가 제한된 Daily digest와
+  launchd 예제를 macOS에서 제공합니다.
+- [Mac Context for ISTM](https://github.com/hyungchulc/mac-context-for-istm)는
   Apple Mail, Notification Center, Reminders, Calendar의 로컬 맥락을 별도
-  비공개 ISTM으로 수집합니다.
+  비공개 ISTM으로 macOS에서 수집합니다.
 - [Memory Retrieval Lab](https://github.com/hyungchulc/memory-retrieval-lab)은
   가상 fixture, 반복 가능한 지표, 다국어 사례, ranker adapter로 검색
   품질을 측정합니다.

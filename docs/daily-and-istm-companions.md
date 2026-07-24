@@ -9,8 +9,8 @@ source-specific companion projects.
 
 | Project | Owns | Does not own |
 |---|---|---|
-| [Codex ISTM for macOS](https://github.com/hyungchulc/codex-istm-macos) | local Codex session ingestion, bounded Daily digests, launchd examples | Mail, Calendar, Reminders, Notification Center |
-| [macOS ISTM Context](https://github.com/hyungchulc/mac-istm-context) | local Apple app snapshots and event retrieval | Codex conversations, Memory Forest promotion |
+| [Codex Context for ISTM](https://github.com/hyungchulc/codex-context-for-istm) | macOS-only local Codex session ingestion, bounded Daily digests, launchd examples | Mail, Calendar, Reminders, Notification Center |
+| [Mac Context for ISTM](https://github.com/hyungchulc/mac-context-for-istm) | macOS-only local Apple app snapshots and event retrieval | Codex conversations, Memory Forest promotion |
 | [Memory Retrieval Lab](https://github.com/hyungchulc/memory-retrieval-lab) | synthetic retrieval evaluation, metrics, ranker adapters | canonical memory storage or private source collection |
 
 Each project keeps private runtime data outside Git. None of them publishes a

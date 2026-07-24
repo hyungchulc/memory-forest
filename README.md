@@ -172,12 +172,12 @@ Memory Forest owns the canonical layer and retrieval contracts. Source
 collection and retrieval evaluation are separated into focused companion
 projects.
 
-- [Codex ISTM for macOS](https://github.com/hyungchulc/codex-istm-macos)
+- [Codex Context for ISTM](https://github.com/hyungchulc/codex-context-for-istm)
   incrementally collects local Codex conversation sessions into ISTM and
-  produces bounded Daily digests with launchd examples.
-- [macOS ISTM Context](https://github.com/hyungchulc/mac-istm-context) collects
-  local Apple Mail, Notification Center, Reminders, and Calendar context into a
-  separate private ISTM store.
+  produces bounded Daily digests with launchd examples on macOS.
+- [Mac Context for ISTM](https://github.com/hyungchulc/mac-context-for-istm)
+  collects local Apple Mail, Notification Center, Reminders, and Calendar
+  context into a separate private ISTM store on macOS.
 - [Memory Retrieval Lab](https://github.com/hyungchulc/memory-retrieval-lab)
   measures retrieval quality with synthetic fixtures, reproducible metrics,
   multilingual cases, and ranker adapters.

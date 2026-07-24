@@ -43,3 +43,24 @@ class RetrievalDocumentationTests(unittest.TestCase):
                     "docs/retrieval-guide.md",
                     (ROOT / name).read_text(encoding="utf-8"),
                 )
+
+    def test_english_and_korean_readmes_share_the_reference_write_path(self) -> None:
+        for name in ("README.md", "README.ko.md"):
+            with self.subTest(name=name):
+                body = (ROOT / name).read_text(encoding="utf-8")
+                self.assertIn("memory-forest apply-structured", body)
+                self.assertIn("structured-context", body)
+                self.assertIn("docs/integrated-structured-sweep.md", body)
+
+    def test_release_docs_share_the_integrated_writer_contract(self) -> None:
+        paths = (
+            ROOT / "docs" / "roadmap.md",
+            ROOT / "docs" / "automation.md",
+            ROOT / "docs" / "assets" / "memory-forest-automation.svg",
+        )
+        for path in paths:
+            with self.subTest(path=path.name):
+                body = path.read_text(encoding="utf-8")
+                self.assertIn("apply-structured", body)
+                self.assertNotIn("apply-daily + promote", body)
+                self.assertNotIn("`apply-daily` or `promote`", body)

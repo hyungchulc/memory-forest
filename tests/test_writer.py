@@ -16,17 +16,22 @@ from memory_forest import (
     index_forest,
     initialize_forest,
     load_forest_identity,
+    structured_context_index,
     validate_forest,
 )
 from memory_forest.errors import MemoryForestError
+from memory_forest.core import structured_forest_snapshot_sha256
 from memory_forest.writer import (
     DAILY_PLAN_SCHEMA,
     PROMOTION_PLAN_SCHEMA,
+    STRUCTURED_SWEEP_PLAN_SCHEMA,
     WRITE_RECEIPT_SCHEMA,
     apply_daily,
+    apply_structured_sweep,
     promote,
     read_plan_source,
     validate_promotion_plan,
+    validate_structured_sweep_plan,
 )
 
 
@@ -117,6 +122,59 @@ class WriterTests(unittest.TestCase):
     def admit_source(self) -> dict[str, object]:
         return apply_daily(self.root, self.daily_plan())
 
+    def structured_plan(
+        self,
+        root: Path,
+        changes: list[dict[str, object]],
+        *,
+        transaction: str = "9" * 64,
+        entry_id: str = "entry-1",
+    ) -> dict[str, object]:
+        targets = [change["target"] for change in changes]
+        return {
+            "schema_version": STRUCTURED_SWEEP_PLAN_SCHEMA,
+            "forest_id": load_forest_identity(root),
+            "transaction_id": transaction,
+            "date": "2042-04-13",
+            "changes": changes,
+            "dispositions": [
+                {
+                    "daily_entry_id": entry_id,
+                    "status": "promoted" if changes else "source_only",
+                    "targets": targets,
+                    "reason": (
+                        "The integrated sweep updates the exact structured targets."
+                        if changes
+                        else "The source adds no separate durable structured fact."
+                    ),
+                }
+            ],
+            "provenance": {
+                "packet_sha256": "7" * 64,
+                "result_sha256": transaction,
+                "forest_snapshot_sha256": structured_forest_snapshot_sha256(root),
+                "daily_commit_sha256s": ["c" * 64],
+            },
+        }
+
+    def replace_change(
+        self,
+        path: Path,
+        target: dict[str, object],
+        body: str,
+        *,
+        source_ids: list[str] | None = None,
+    ) -> dict[str, object]:
+        return {
+            "action": "replace",
+            "target": target,
+            "expected_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "body": body,
+            "source_daily_entry_ids": source_ids or [],
+            "reason": "The current structured object needs an exact full-body update.",
+            "confidence": "high",
+        }
+
     def canonical_snapshot(self) -> dict[str, bytes]:
         return {
             path.relative_to(self.root).as_posix(): path.read_bytes()
@@ -178,6 +236,328 @@ class WriterTests(unittest.TestCase):
         self.assertTrue(validate_forest(self.root)["ok"])
         self.assertTrue(audit_forest(self.root)["ok"])
         self.assertTrue((self.root / ".memory-forest/index.sqlite3").is_file())
+
+    def test_integrated_sweep_replaces_multiple_layers_in_one_transaction(self) -> None:
+        other = self.parent / "integrated"
+        initialize_forest(other, example=True)
+        apply_daily(
+            other,
+            self.daily_plan(forest_id=load_forest_identity(other)),
+        )
+        xltm = other / "01 xltm/XLTM.md"
+        leaf = (
+            other
+            / "04 stm/research-notes/observatory-trial/instrument-calibration.md"
+        )
+        changes = [
+            self.replace_change(
+                xltm,
+                {
+                    "layer": "xltm",
+                    "tree": None,
+                    "branch": None,
+                    "leaf": None,
+                },
+                xltm.read_text(encoding="utf-8") + "\nIntegrated sweep anchor.\n",
+            ),
+            self.replace_change(
+                leaf,
+                {
+                    "layer": "stm",
+                    "tree": "research-notes",
+                    "branch": "observatory-trial",
+                    "leaf": "instrument-calibration",
+                },
+                leaf.read_text(encoding="utf-8") + "\nIntegrated sweep detail.\n",
+                source_ids=["entry-1"],
+            ),
+        ]
+        plan = self.structured_plan(other, changes)
+        result = apply_structured_sweep(other, plan)
+        self.assert_success_shape(result, "apply-structured")
+        self.assertEqual(
+            result["touched"],
+            [
+                "01 xltm/XLTM.md",
+                "04 stm/research-notes/observatory-trial/instrument-calibration.md",
+            ],
+        )
+        self.assertTrue(validate_forest(other)["ok"])
+        self.assertTrue(audit_forest(other)["ok"])
+        self.assertTrue(
+            apply_structured_sweep(other, plan)["already_applied"]
+        )
+
+    def test_integrated_sweep_orders_forest_tree_branch_leaf_materialization(
+        self,
+    ) -> None:
+        other = self.parent / "ordered-materialization"
+        initialize_forest(other, example=True)
+        xltm = other / "01 xltm/XLTM.md"
+        changes = [
+            {
+                "action": "create",
+                "target": {
+                    "layer": "stm",
+                    "tree": "new-tree",
+                    "branch": "new-branch",
+                    "leaf": "new-leaf",
+                },
+                "expected_sha256": None,
+                "body": "# New leaf\n",
+                "source_daily_entry_ids": ["entry-1"],
+                "reason": "Create the exact leaf.",
+                "confidence": "high",
+            },
+            {
+                "action": "create",
+                "target": {
+                    "layer": "mtm",
+                    "tree": "new-tree",
+                    "branch": "new-branch",
+                    "leaf": None,
+                },
+                "expected_sha256": None,
+                "body": "# New branch\n",
+                "source_daily_entry_ids": [],
+                "reason": "Create the owning branch.",
+                "confidence": "high",
+            },
+            {
+                "action": "create",
+                "target": {
+                    "layer": "ltm",
+                    "tree": "new-tree",
+                    "branch": None,
+                    "leaf": None,
+                },
+                "expected_sha256": None,
+                "body": "# New tree\n",
+                "source_daily_entry_ids": [],
+                "reason": "Create the owning tree.",
+                "confidence": "high",
+            },
+            self.replace_change(
+                xltm,
+                {
+                    "layer": "xltm",
+                    "tree": None,
+                    "branch": None,
+                    "leaf": None,
+                },
+                xltm.read_text(encoding="utf-8") + "\nNew forest authority.\n",
+            ),
+        ]
+        parsed = validate_structured_sweep_plan(self.structured_plan(other, changes))
+        ordered = writer_module._structured_sweep_changes(
+            other,
+            parsed,
+            limits=writer_module.DEFAULT_LIMITS,
+        )
+        self.assertEqual(
+            [path for path, _ in ordered],
+            [
+                "01 xltm/XLTM.md",
+                "02 ltm/new-tree_LTM.md",
+                "03 mtm/new-tree/new-branch.md",
+                "04 stm/new-tree/new-branch/new-leaf.md",
+            ],
+        )
+
+    def test_integrated_sweep_rejects_stale_preimage_without_mutation(self) -> None:
+        other = self.parent / "stale"
+        initialize_forest(other, example=True)
+        apply_daily(
+            other,
+            self.daily_plan(forest_id=load_forest_identity(other)),
+        )
+        leaf = (
+            other
+            / "04 stm/research-notes/observatory-trial/instrument-calibration.md"
+        )
+        change = self.replace_change(
+            leaf,
+            {
+                "layer": "stm",
+                "tree": "research-notes",
+                "branch": "observatory-trial",
+                "leaf": "instrument-calibration",
+            },
+            leaf.read_text(encoding="utf-8") + "\nNew detail.\n",
+            source_ids=["entry-1"],
+        )
+        change["expected_sha256"] = "0" * 64
+        before = {
+            path.relative_to(other).as_posix(): path.read_bytes()
+            for path in other.rglob("*.md")
+        }
+        with self.assertRaises(MemoryForestError) as stale:
+            apply_structured_sweep(
+                other,
+                self.structured_plan(other, [change]),
+            )
+        self.assertEqual(stale.exception.code, "structured_preimage_mismatch")
+        self.assertEqual(
+            {
+                path.relative_to(other).as_posix(): path.read_bytes()
+                for path in other.rglob("*.md")
+            },
+            before,
+        )
+
+    def test_integrated_sweep_rolls_back_every_layer_when_validation_fails(self) -> None:
+        other = self.parent / "rollback"
+        initialize_forest(other, example=True)
+        apply_daily(
+            other,
+            self.daily_plan(forest_id=load_forest_identity(other)),
+        )
+        xltm = other / "01 xltm/XLTM.md"
+        leaf = (
+            other
+            / "04 stm/research-notes/observatory-trial/instrument-calibration.md"
+        )
+        changes = [
+            self.replace_change(
+                xltm,
+                {
+                    "layer": "xltm",
+                    "tree": None,
+                    "branch": None,
+                    "leaf": None,
+                },
+                xltm.read_text(encoding="utf-8") + "\nTentative anchor.\n",
+            ),
+            self.replace_change(
+                leaf,
+                {
+                    "layer": "stm",
+                    "tree": "research-notes",
+                    "branch": "observatory-trial",
+                    "leaf": "instrument-calibration",
+                },
+                "# Invalid leaf without its canonical parent link\n",
+                source_ids=["entry-1"],
+            ),
+        ]
+        before = {
+            path.relative_to(other).as_posix(): path.read_bytes()
+            for path in other.rglob("*.md")
+        }
+        with self.assertRaises(MemoryForestError):
+            apply_structured_sweep(
+                other,
+                self.structured_plan(other, changes),
+            )
+        self.assertEqual(
+            {
+                path.relative_to(other).as_posix(): path.read_bytes()
+                for path in other.rglob("*.md")
+            },
+            before,
+        )
+
+    def test_structured_context_returns_bounded_current_bodies(self) -> None:
+        other = self.parent / "context"
+        initialize_forest(other, example=True)
+        index_forest(other)
+        result = structured_context_index(
+            other,
+            "instrument calibration",
+            limit=3,
+        )
+        self.assertEqual(result["operation"], "structured-context")
+        self.assertEqual(
+            result["forest_snapshot_sha256"],
+            structured_forest_snapshot_sha256(other),
+        )
+        self.assertEqual(result["documents"][0]["route"]["layer"]["name"], "xltm")
+        self.assertEqual(
+            set(result["documents"][0]["route"]),
+            {"branch", "layer", "leaf", "path", "route_key", "tree"},
+        )
+        self.assertNotIn("domain", result["documents"][0]["route"])
+        self.assertLessEqual(len(result["documents"]), 10)
+        for document in result["documents"]:
+            self.assertEqual(
+                hashlib.sha256(document["body"].encode("utf-8")).hexdigest(),
+                document["sha256"],
+            )
+
+    def test_structured_context_rejects_an_unselected_stale_document(self) -> None:
+        other = self.parent / "stale-context"
+        initialize_forest(other, example=True)
+        index_forest(other)
+        unrelated = (
+            other
+            / "04 stm"
+            / "mission-operations"
+            / "recovery-drill"
+            / "telemetry-replay.md"
+        )
+        unrelated.write_text(
+            unrelated.read_text(encoding="utf-8") + "\nStale detail.\n",
+            encoding="utf-8",
+        )
+        with self.assertRaises(MemoryForestError) as captured:
+            structured_context_index(
+                other,
+                "instrument calibration",
+                limit=3,
+            )
+        self.assertEqual(captured.exception.code, "index_stale")
+
+    def test_integrated_sweep_rejects_a_changed_forest_snapshot(self) -> None:
+        self.admit_source()
+        plan = self.structured_plan(self.root, [])
+        root_document = self.root / "01 xltm" / "XLTM.md"
+        root_document.write_text(
+            root_document.read_text(encoding="utf-8") + "\nCurrent change.\n",
+            encoding="utf-8",
+        )
+        with self.assertRaises(MemoryForestError) as captured:
+            apply_structured_sweep(self.root, plan)
+        self.assertEqual(captured.exception.code, "structured_snapshot_mismatch")
+        self.assertFalse(
+            (
+                self.root
+                / ".memory-forest"
+                / "receipts"
+                / f"{plan['transaction_id']}.json"
+            ).exists()
+        )
+
+    def test_integrated_sweep_rejects_domain_as_a_fifth_object_level(self) -> None:
+        other = self.parent / "no-domain-object"
+        initialize_forest(other, example=True)
+        apply_daily(
+            other,
+            self.daily_plan(forest_id=load_forest_identity(other)),
+        )
+        leaf = (
+            other
+            / "04 stm/research-notes/observatory-trial/instrument-calibration.md"
+        )
+        change = self.replace_change(
+            leaf,
+            {
+                "layer": "stm",
+                "tree": "research-notes",
+                "branch": "observatory-trial",
+                "leaf": "instrument-calibration",
+            },
+            leaf.read_text(encoding="utf-8") + "\nNew detail.\n",
+            source_ids=["entry-1"],
+        )
+        target = change["target"]
+        assert isinstance(target, dict)
+        target["domain"] = target.pop("tree")
+        with self.assertRaises(MemoryForestError) as invalid:
+            apply_structured_sweep(
+                other,
+                self.structured_plan(other, [change]),
+            )
+        self.assertEqual(invalid.exception.code, "invalid_structured_sweep_plan")
 
     def test_existing_leaf_is_appended_without_replacing_prior_body(self) -> None:
         other = self.parent / "example"
@@ -497,6 +877,24 @@ class WriterTests(unittest.TestCase):
         self.assertEqual(len(promoted.stdout.splitlines()), 1)
         promotion_result = json.loads(promoted.stdout)
         self.assert_success_shape(promotion_result, "promote")
+
+        structured_file = self.parent / "structured.json"
+        structured_file.write_text(
+            json.dumps(self.structured_plan(self.root, [])),
+            encoding="utf-8",
+        )
+        structured_file.chmod(0o600)
+        structured = self.run_cli(
+            "apply-structured",
+            str(self.root),
+            str(structured_file),
+        )
+        self.assertEqual(structured.returncode, 0, structured.stdout)
+        self.assertEqual(len(structured.stdout.splitlines()), 1)
+        self.assert_success_shape(
+            json.loads(structured.stdout),
+            "apply-structured",
+        )
 
     def run_cli(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         environment = os.environ.copy()

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
   <title id="title">Target operating model for automated Memory Forest maintenance</title>
-  <desc id="desc">The maintenance lane validates and rebuilds the index. A caller reviews strict plans, then the implemented local writer applies Daily and semantic promotion transactions with receipts.</desc>
+  <desc id="desc">The maintenance lane validates and rebuilds the index. A caller reviews strict plans, then the implemented local writer applies Daily and integrated Structured transactions with receipts.</desc>
   <rect width="1200" height="720" fill="#f7f4ed"/>
 
   <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif">
@@ -69,7 +69,7 @@
 
     <rect x="720" y="506" width="326" height="74" rx="12" fill="#eef1ff" stroke="#4059b5" stroke-width="2"/>
     <text x="883" y="534" fill="#20222a" font-size="16" font-weight="700" text-anchor="middle">local canonical writer</text>
-    <text x="883" y="556" fill="#4059b5" font-size="13" font-weight="700" text-anchor="middle">apply-daily + promote + receipt</text>
+    <text x="883" y="556" fill="#4059b5" font-size="13" font-weight="700" text-anchor="middle">apply-daily + apply-structured + receipt</text>
 
     <text x="883" y="608" fill="#303340" font-size="13" font-weight="650" text-anchor="middle">05 Daily -&gt; 04 STM -&gt; 03 MTM -&gt; 02 LTM -&gt; 01 XLTM</text>
     <text x="883" y="626" fill="#5c6070" font-size="12" text-anchor="middle">00 Life Archive remains a separate optional selection lane</text>

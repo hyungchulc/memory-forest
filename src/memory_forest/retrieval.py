@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -11,7 +12,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Final, NoReturn
 
-from .core import MAX_QUERY_PLAN_PROBES, load_retrieval_config
+from .core import (
+    MAX_QUERY_PLAN_PROBES,
+    _structured_snapshot_sha256,
+    load_forest_identity,
+    load_retrieval_config,
+    structured_forest_snapshot_sha256,
+)
 from .errors import MemoryForestError
 from .index import (
     INDEX_SCHEMA_VERSION,
@@ -27,6 +34,7 @@ from .safety import DEFAULT_LIMITS, ForestLimits, require_real_root
 QUERY_PLAN_SCHEMA_VERSION: Final[int] = 1
 MAX_QUERY_PLAN_BYTES: Final[int] = 32 * 1024
 MAX_QUERY_CHARS: Final[int] = 1_000
+MAX_CONTEXT_DOCUMENTS: Final[int] = 32
 _SHA256_RE: Final[re.Pattern[str]] = re.compile(r"[0-9a-f]{64}")
 
 
@@ -414,6 +422,133 @@ def retrieve_index(
         },
         "schema_version": SCHEMA_VERSION,
         "trails": trails,
+    }
+
+
+def structured_context_index(
+    root: str | os.PathLike[str],
+    query: str,
+    *,
+    limit: int = 3,
+    limits: ForestLimits = DEFAULT_LIMITS,
+) -> dict[str, object]:
+    root_path = require_real_root(root)
+    if limit < 1 or limit > 10:
+        raise MemoryForestError(
+            "invalid_limit",
+            "Structured context limit must be between 1 and 10.",
+            details={"limit": limit},
+        )
+    retrieved = retrieve_index(root_path, query, limit=limit, limits=limits)
+    paths: dict[str, dict[str, object]] = {}
+    raw_trails = retrieved.get("trails")
+    if not isinstance(raw_trails, list):
+        raise MemoryForestError(
+            "context_source_invalid",
+            "The Structured context source has an invalid trail collection.",
+        )
+    for trail in raw_trails:
+        assert isinstance(trail, dict)
+        nodes = trail["trail"]
+        assert isinstance(nodes, list)
+        for node in nodes:
+            assert isinstance(node, dict)
+            route = node["route"]
+            assert isinstance(route, dict)
+            path = route["path"]
+            assert isinstance(path, str)
+            paths.setdefault(path, node)
+
+    index_path = _secure_index_path(root_path)
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = sqlite3.connect(f"file:{index_path}?mode=ro", uri=True)
+        connection.row_factory = sqlite3.Row
+        _verify_schema(connection)
+        nodes = _load_structured_nodes(connection)
+    except sqlite3.Error as exc:
+        raise MemoryForestError(
+            "query_failed",
+            "The local SQLite FTS5 index could not provide Structured context.",
+            details={"reason": exc.__class__.__name__},
+        ) from exc
+    finally:
+        if connection is not None:
+            connection.close()
+    root_node = next(
+        node for node in nodes.values() if node.route.layer.name == "xltm"
+    )
+    forest_snapshot_sha256 = structured_forest_snapshot_sha256(
+        root_path,
+        limits=limits,
+    )
+    indexed_snapshot_sha256 = _structured_snapshot_sha256(
+        (node.route.path, node.sha256) for node in nodes.values()
+    )
+    if indexed_snapshot_sha256 != forest_snapshot_sha256:
+        raise MemoryForestError(
+            "index_stale",
+            "The local index no longer matches the canonical forest; rebuild the index.",
+            details={"action": "memory-forest index ROOT"},
+        )
+    paths.setdefault(root_node.route.path, root_node.as_metadata())
+    if len(paths) > MAX_CONTEXT_DOCUMENTS:
+        raise MemoryForestError(
+            "context_too_large",
+            "The selected Structured context exceeds its document bound.",
+            details={"limit": MAX_CONTEXT_DOCUMENTS},
+        )
+
+    documents: list[dict[str, object]] = []
+    for path in sorted(
+        paths,
+        key=lambda value: (
+            parse_relative_route(value).layer.number,
+            value,
+        ),
+    ):
+        metadata = paths[path]
+        sha256 = metadata["sha256"]
+        assert isinstance(sha256, str)
+        body = _read_current_indexed_body(
+            root_path,
+            path,
+            sha256,
+            limits=limits,
+        )
+        route = metadata["route"]
+        assert isinstance(route, dict)
+        layer = route["layer"]
+        assert isinstance(layer, dict)
+        layer_name = layer["name"]
+        assert isinstance(layer_name, str)
+        semantic_route = {
+            "branch": route["branch"] if layer_name in {"mtm", "stm"} else None,
+            "layer": layer,
+            "leaf": route["leaf"] if layer_name == "stm" else None,
+            "path": route["path"],
+            "route_key": route["route_key"],
+            "tree": route["domain"] if layer_name != "xltm" else None,
+        }
+        documents.append({**metadata, "route": semantic_route, "body": body})
+
+    canonical_documents = json.dumps(
+        documents,
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return {
+        "documents": documents,
+        "forest_id": load_forest_identity(root_path, limits=limits),
+        "forest_snapshot_sha256": forest_snapshot_sha256,
+        "ok": True,
+        "operation": "structured-context",
+        "query": query,
+        "schema_version": SCHEMA_VERSION,
+        "snapshot_sha256": hashlib.sha256(canonical_documents).hexdigest(),
+        "trail_count": retrieved["count"],
     }
 
 

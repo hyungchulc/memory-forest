@@ -11,6 +11,7 @@ import sqlite3
 import stat
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from collections.abc import Iterable
 from typing import Any, Final
 
 from .errors import MemoryForestError
@@ -290,6 +291,41 @@ def inspect_forest(
         documents=tuple(documents),
         issues=tuple(issues),
         link_count=link_count,
+    )
+
+
+def _structured_snapshot_sha256(
+    bindings: Iterable[tuple[str, str]],
+) -> str:
+    payload = [
+        {"path": path, "sha256": sha256}
+        for path, sha256 in sorted(bindings)
+    ]
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def structured_forest_snapshot_sha256(
+    root: str | os.PathLike[str],
+    *,
+    limits: ForestLimits = DEFAULT_LIMITS,
+) -> str:
+    inspection = inspect_forest(root, audit_links=False, limits=limits)
+    if not inspection.ok:
+        raise MemoryForestError(
+            "structured_snapshot_invalid",
+            "The current Structured forest must validate before it can be bound.",
+        )
+    return _structured_snapshot_sha256(
+        (document.route.path, document.sha256)
+        for document in inspection.documents
+        if 1 <= document.route.layer.number <= 4
     )
 
 

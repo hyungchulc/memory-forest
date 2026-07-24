@@ -39,8 +39,8 @@ flowchart TB
     istm --> daily["05 Daily<br/>readable source lane"]
     daily --> stm["04 STM<br/>detailed dated leaves"]
     stm --> mtm["03 MTM<br/>active recurring branches"]
-    mtm --> ltm["02 LTM<br/>durable domain trees"]
-    ltm --> xltm["01 XLTM<br/>root map and long-horizon anchors"]
+    mtm --> ltm["02 LTM<br/>durable trees"]
+    ltm --> xltm["01 XLTM<br/>forest and long-horizon anchors"]
     stm -. archive candidate .-> archive["00 Life Archive<br/>reusable historical record"]
     mtm -. archive candidate .-> archive
     ltm -. archive candidate .-> archive
@@ -66,8 +66,8 @@ the full model.
 | Layer | Object | Responsibility |
 |---|---|---|
 | `00 life_archive` | archive record | reusable project or life history with retained provenance |
-| `01 xltm` | root map | top-level domains, long-horizon anchors, cross-domain invariants |
-| `02 ltm` | domain tree | durable knowledge and stable domain contracts |
+| `01 xltm` | forest | long-horizon anchors and cross-tree invariants |
+| `02 ltm` | tree | durable knowledge and stable thematic contracts |
 | `03 mtm` | branch | active recurring work, procedures, and medium-horizon state |
 | `04 stm` | leaf | detailed dated evidence and short-term actionable context |
 | `05 daily` | daily source | readable, source-bound digest of recent events |
@@ -139,20 +139,27 @@ See the [CLI reference](docs/cli.md) before integrating the output into another 
 
 ### Provenance-bound local writes
 
-v0.3 adds two network-free standard-library write commands:
+v0.3 provides three network-free standard-library write commands. The
+integrated Structured path is the reference path; `promote` remains a bounded
+leaf-promotion compatibility command.
 
 ```sh
-chmod 600 daily-plan.json promotion-plan.json
+chmod 600 daily-plan.json structured-sweep-plan.json
 memory-forest apply-daily "$demo_root" daily-plan.json
-memory-forest promote "$demo_root" promotion-plan.json
+memory-forest apply-structured "$demo_root" structured-sweep-plan.json
 ```
 
-`apply-daily` writes only the canonical dated Daily source. `promote` accepts
-semantic domain/branch/leaf routes rather than raw paths, materializes missing
-parents first, maintains adjacent parent/child links, and appends idempotent
-updates to STM leaves. Both commands acquire the same sibling maintenance lock,
-reject symlink and case-fold ambiguity, roll back handled validation/audit/index
-failures, and publish a private receipt only after the new index succeeds.
+`apply-daily` writes only the canonical dated Daily source.
+`structured-context` opens bounded, hash-bound current XLTM/LTM/MTM/STM bodies
+for one integrated review. `apply-structured` accepts semantic targets across
+all four structured layers, applies exact creates or full-body replacements in
+one transaction, and refreshes validation, audit, and the derived index once.
+The semantic hierarchy is exactly XLTM Forest, LTM Tree, MTM Branch, and STM
+Leaf. Structured targets use `tree` as the LTM routing key; it is not a
+separate object level.
+The write commands acquire the same sibling maintenance lock, reject symlink
+and case-fold ambiguity, roll back handled validation/audit/index failures, and
+publish a private receipt only after the new index succeeds.
 Each plan is bound to the stable private `forest_id` created by `init`, so
 replacing a forest at the same pathname fails closed. Empty reviewed arrays
 close as receipt-backed no-ops.
@@ -161,8 +168,9 @@ Legacy schema-v1 forests without `forest_id` remain valid for read-only
 validation and retrieval. The v0.3 writers reject them until a supported
 migration assigns an identity; they never edit legacy configuration implicitly.
 
-See [Daily Plan v1](docs/daily-plan.schema.json),
-[Promotion Plan v1](docs/promotion-plan.schema.json), [Write Receipt
+See [Integrated Structured sweep](docs/integrated-structured-sweep.md),
+[Daily Plan v1](docs/daily-plan.schema.json), [Structured Sweep Plan
+v1](docs/structured-sweep-plan.schema.json), [Write Receipt
 v1](docs/write-receipt.schema.json), and the [CLI reference](docs/cli.md).
 
 ## Route-only privacy boundary
@@ -228,7 +236,12 @@ A promoted record should carry the source pointer, source and capture times, sco
 
 The Life Archive arrows above represent selection from structured history, not unrestricted canonical wikilinks. In the current schema, Life Archive links canonically only to adjacent XLTM; nonadjacent evidence remains a plain provenance path.
 
-The reference contracts use parent-first materialization and adjacent-layer links. `audit` requires every LTM, MTM, and STM record to link to its immediate canonical parent. Same-layer lateral wikilinks are rejected so ownership remains mechanically inspectable.
+The reference workflow makes one integrated Structured decision over current
+XLTM/LTM/MTM/STM plus committed Daily. Parent-before-child is the internal
+materialization order within that sweep, not a separate parent-first workflow.
+`audit` requires every LTM, MTM, and STM record to link to its immediate
+canonical parent. Same-layer lateral wikilinks are rejected so ownership
+remains mechanically inspectable.
 
 See [Provenance and promotion](docs/provenance-and-promotion.md).
 
@@ -245,8 +258,8 @@ automation starter therefore separates two lanes:
 
 - implemented deterministic maintenance, which locks one exact private root,
   validates and audits it, then atomically rebuilds the derived index
-- caller-owned plan generation and review, followed by the implemented
-  `apply-daily` or `promote` transaction writer with provenance binding,
+- caller-owned integrated layer and structure judgment, followed by the
+  implemented `apply-daily` or `apply-structured` transaction writer with provenance binding,
   rollback, validation, audit, index, and receipt proof
 
 The repository includes a shared maintenance wrapper, a crontab example, a
@@ -266,11 +279,11 @@ See [Codex Debug Bridge integration](docs/codex-debug-bridge.md).
 
 ## Project status
 
-Memory Forest is alpha software. The v0.3 scope adds strict receipt-backed Daily
-application and semantic promotion to the deterministic root-first retrieval
-core, portable contracts, synthetic fixtures, and route-first body boundary. It
-is suitable for evaluation and adaptation, not unattended high-stakes
-decision-making.
+Memory Forest is alpha software. The v0.3 scope includes strict receipt-backed
+Daily application, bounded current-Forest context, one integrated
+XLTM/LTM/MTM/STM sweep, deterministic root-first retrieval, portable contracts,
+synthetic fixtures, and a route-first body boundary. It is suitable for
+evaluation and adaptation, not unattended high-stakes decision-making.
 
 Candidate directions include measured multilingual routing evaluation, optional ranking adapters, generated graph views, migration tooling, and stronger provenance integrity checks. These are not release promises. See [Roadmap](docs/roadmap.md).
 

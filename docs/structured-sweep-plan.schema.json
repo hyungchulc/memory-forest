@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Memory Forest Structured Sweep Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "forest_id",
+    "transaction_id",
+    "date",
+    "changes",
+    "dispositions",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "memory-forest-structured-sweep-plan-v1"
+    },
+    "forest_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "transaction_id": {
+      "$ref": "#/$defs/hash"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "changes": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/change"
+      }
+    },
+    "dispositions": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/disposition"
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packet_sha256",
+        "result_sha256",
+        "forest_snapshot_sha256",
+        "daily_commit_sha256s"
+      ],
+      "properties": {
+        "packet_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "result_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "forest_snapshot_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "daily_commit_sha256s": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "tree",
+        "branch",
+        "leaf"
+      ],
+      "properties": {
+        "layer": {
+          "enum": [
+            "xltm",
+            "ltm",
+            "mtm",
+            "stm"
+          ]
+        },
+        "tree": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$"
+        },
+        "branch": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$"
+        },
+        "leaf": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$"
+        }
+      }
+    },
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "target",
+        "expected_sha256",
+        "body",
+        "source_daily_entry_ids",
+        "reason",
+        "confidence"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "create",
+            "replace"
+          ]
+        },
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "expected_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "source_daily_entry_ids": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "confidence": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
+      }
+    },
+    "disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "daily_entry_id",
+        "status",
+        "targets",
+        "reason"
+      ],
+      "properties": {
+        "daily_entry_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "status": {
+          "enum": [
+            "promoted",
+            "already_covered",
+            "source_only",
+            "promotion_debt"
+          ]
+        },
+        "targets": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/target"
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        }
+      }
+    }
+  }
+}

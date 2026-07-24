@@ -25,7 +25,9 @@ The CLI exposes these operations:
 - `route`
 - `search`
 - `retrieve`
+- `structured-context`
 - `apply-daily`
+- `apply-structured`
 - `promote`
 
 For recurring read-only maintenance, `index` is the primary operation. It validates the
@@ -33,7 +35,8 @@ forest, audits canonical parent links, builds a new private SQLite index in a
 temporary file, and atomically replaces the previous derived index only after a
 successful build.
 
-`apply-daily` and `promote` are canonical writers. They accept only strict
+`apply-daily`, `apply-structured`, and the compatibility `promote` command are
+canonical writers. They accept only strict
 versioned JSON plans, share the sibling maintenance lock, and finish
 validation, audit, atomic index replacement, and a private receipt as one
 handled transaction. They do not call a model or network service and do not
@@ -211,10 +214,11 @@ It pins the CLI, wrapper, and forest to absolute paths, tells the scheduled task
 to call the same deterministic wrapper, and forbids fallback scanning,
 canonical edits, repair, promotion, publication, and body output.
 
-### Read-only promotion review
+### Read-only integrated Structured review
 
-Codex may also review a bounded, operator-selected evidence packet and propose
-adjacent-layer promotions without writing them. A useful review result includes:
+Codex may also review bounded committed Daily together with bounded current
+XLTM/LTM/MTM/STM bodies and propose one complete Structured delta without
+writing it. A useful review result includes:
 
 - exact source identifiers and hashes
 - proposed destination layer and canonical owner
@@ -225,25 +229,27 @@ adjacent-layer promotions without writing them. A useful review result includes:
 This sends the selected evidence through the configured Codex account and model
 processing boundary. Do not use it when the source must remain strictly local.
 
-### Applied semantic promotion
+### Applied integrated Structured sweep
 
 The core provides the deterministic application boundary:
 
 ```sh
 memory-forest --json apply-daily ROOT daily-plan.json
-memory-forest --json promote ROOT promotion-plan.json
+memory-forest --json apply-structured ROOT structured-sweep-plan.json
 ```
 
 The plans are closed schemas. Daily entries bind stable source record IDs to a
-Daily `result_sha256`. Promotions bind source entry IDs to the sorted unique
-Daily result hashes and provide only a semantic domain/branch/leaf route.
-Paths, layers, operations, credentials, and provider instructions are rejected.
+Daily `result_sha256`. Structured sweeps bind exact Daily dispositions, frozen
+current-Forest context, semantic layer targets, and full-body create or replace
+changes. Raw paths, delete, move, arbitrary operations, credentials, and
+provider instructions are rejected.
 
-The writer provides the shared lock, path and permission guards, parent-first
-materialization, an external durable journal, recovery after an interrupted
-write once a verified stale lock is cleared, exact transaction blocks,
-rollback for handled validation/audit/index failures, idempotent retry, atomic
-indexing, and a receipt under `.memory-forest/receipts/`.
+The writer provides the shared lock, path and permission guards, internal
+parent-before-child structural validation, an external durable journal,
+recovery after an interrupted write once a verified stale lock is cleared,
+exact transaction blocks, rollback for handled validation/audit/index failures,
+idempotent retry, one atomic index refresh, and a receipt under
+`.memory-forest/receipts/`.
 
 An unattended integration still owns and must test:
 
@@ -267,7 +273,7 @@ integration.
 | Wrapper exits `0` and final `doctor` is `ok:true` | The derived index was rebuilt and the basic local checks passed | Keep the bounded run record |
 | Lock cannot be acquired | Another run may be active or a prior run may have crashed | Skip; inspect the exact process and lock |
 | `index` exits nonzero or returns `ok:false` | Validation, audit, permissions, FTS5, or indexing failed | Stop; do not repair canonical content automatically |
-| `apply-daily` or `promote` returns a receipt | The exact plan completed validation, audit, and atomic indexing | Hash and retain the private receipt; assess claim quality separately |
+| `apply-daily` or `apply-structured` returns a receipt | The exact plan completed validation, audit, and atomic indexing | Hash and retain the private receipt; assess claim quality separately |
 | Scheduled task reports success but no file proof exists | Scheduler state only | Inspect the real index timestamp and bounded output |
 | Index schema mismatch after an upgrade | Derived state is stale | Run `doctor`, then rebuild the index |
 

@@ -80,7 +80,45 @@ markers that bind each entry to `provenance.result_sha256` in canonical Daily.
 An empty `entries` array is a valid reviewed no-op. It still validates, audits,
 rebuilds the index, and writes a receipt, while `touched` remains empty.
 
-## promote
+## structured-context
+
+```sh
+memory-forest structured-context ROOT QUERY --limit 3
+```
+
+Returns bounded current XLTM/LTM/MTM/STM bodies for one integrated Structured
+decision. Each document carries its semantic route, exact body SHA-256, size,
+and modification time. The response snapshot hash binds the exact returned
+documents. Unlike `retrieve`, this command intentionally crosses the body
+boundary, so its output must be handled as private memory.
+
+## apply-structured
+
+```sh
+chmod 600 structured-sweep-plan.json
+memory-forest apply-structured ROOT structured-sweep-plan.json
+printf '%s' "$structured_plan" | memory-forest apply-structured ROOT -
+```
+
+Applies a strict [Structured Sweep Plan
+v1](structured-sweep-plan.schema.json). One plan may create or fully replace
+semantic targets in XLTM, LTM, MTM, and STM. A target names a layer and only
+the tree, branch, or leaf identifiers valid for that layer. Replace changes
+must bind the exact reviewed preimage SHA-256. Raw paths, delete, move, partial
+patches, and arbitrary operations are rejected.
+
+Every disposed Daily entry must exist in canonical Daily and must be classified
+as `promoted`, `already_covered`, `source_only`, or `promotion_debt`. The plan
+binds the exact Daily result hashes represented by those dispositions and the
+frozen current-Forest snapshot used during review.
+
+All changes share one maintenance lock and one rollback boundary. The writer
+checks every preimage, writes the complete layer delta, validates and audits
+the resulting forest, rebuilds the derived index once, and publishes one
+receipt. See [Integrated Structured sweep](integrated-structured-sweep.md) for
+the layer, tree, branch, and leaf decision policy.
+
+## promote (compatibility)
 
 ```sh
 chmod 600 promotion-plan.json
@@ -88,7 +126,11 @@ memory-forest promote ROOT promotion-plan.json
 printf '%s' "$promotion_plan" | memory-forest promote ROOT -
 ```
 
-Applies a reviewed [Promotion Plan v1](promotion-plan.schema.json). Each
+Applies the older bounded leaf-promotion [Promotion Plan
+v1](promotion-plan.schema.json). It remains available for integrations that
+need one semantic Daily-to-STM append. New integrations should use
+`structured-context` and `apply-structured` so current structured memory and
+all four layers are judged together. Each
 promotion accepts only source Daily entry identifiers, a semantic route
 `{domain, domain_title, branch, branch_title, leaf}`, inert title/content, and
 the confidence enum `low`, `medium`, or `high`. Raw paths, layer names, and
@@ -101,7 +143,7 @@ XLTM, LTM, MTM, and STM in parent-first order, adds adjacent parent/child links,
 and appends an idempotent promoted-update block to each leaf. An empty
 `promotions` array with an empty commit list closes as a receipt-backed no-op.
 
-Both write commands use the documented sibling
+All write commands use the documented sibling
 `<forest>.maintenance.lock`, reject symlink and case-fold path ambiguity,
 preserve private `0700`/`0600` modes, and keep model-produced text inside
 single-line canonical JSON code blocks. Before a receipt is published, the

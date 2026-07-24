@@ -19,6 +19,7 @@ from .core import (
     _read_utf8_file,
     audit_forest,
     load_forest_identity,
+    structured_forest_snapshot_sha256,
     validate_forest,
 )
 from .errors import MemoryForestError
@@ -38,10 +39,13 @@ from .safety import (
 
 DAILY_PLAN_SCHEMA: Final[str] = "memory-forest-daily-plan-v1"
 PROMOTION_PLAN_SCHEMA: Final[str] = "memory-forest-promotion-plan-v1"
+STRUCTURED_SWEEP_PLAN_SCHEMA: Final[str] = "memory-forest-structured-sweep-plan-v1"
 WRITE_RECEIPT_SCHEMA: Final[str] = "memory-forest-write-receipt-v1"
 MAX_PLAN_BYTES: Final[int] = 256 * 1024
 MAX_DAILY_ENTRIES: Final[int] = 128
 MAX_PROMOTIONS: Final[int] = 128
+MAX_STRUCTURED_CHANGES: Final[int] = 128
+MAX_STRUCTURED_DISPOSITIONS: Final[int] = 128
 MAX_SOURCE_IDS: Final[int] = 128
 MAX_DAILY_COMMITS: Final[int] = 128
 MAX_SUMMARY_CHARS: Final[int] = 16_384
@@ -144,6 +148,51 @@ class PromotionPlan:
     day: str
     promotions: tuple[Promotion, ...]
     provenance: PromotionProvenance
+
+
+@dataclass(frozen=True, slots=True)
+class StructuredTarget:
+    layer: str
+    tree: str | None
+    branch: str | None
+    leaf: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class StructuredChange:
+    action: str
+    target: StructuredTarget
+    expected_sha256: str | None
+    body: str
+    source_daily_entry_ids: tuple[str, ...]
+    reason: str
+    confidence: str
+
+
+@dataclass(frozen=True, slots=True)
+class StructuredDisposition:
+    daily_entry_id: str
+    status: str
+    targets: tuple[StructuredTarget, ...]
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class StructuredSweepProvenance:
+    packet_sha256: str
+    result_sha256: str
+    forest_snapshot_sha256: str
+    daily_commit_sha256s: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class StructuredSweepPlan:
+    forest_id: str
+    transaction_id: str
+    day: str
+    changes: tuple[StructuredChange, ...]
+    dispositions: tuple[StructuredDisposition, ...]
+    provenance: StructuredSweepProvenance
 
 
 @dataclass(frozen=True, slots=True)
@@ -1064,6 +1113,329 @@ def validate_promotion_plan(value: object) -> PromotionPlan:
     )
 
 
+def _structured_target(value: object, *, field: str) -> StructuredTarget:
+    target = _exact_object(
+        value,
+        {"layer", "tree", "branch", "leaf"},
+        code="invalid_structured_sweep_plan",
+    )
+    layer = target["layer"]
+    if layer not in {"xltm", "ltm", "mtm", "stm"}:
+        _invalid(
+            "invalid_structured_sweep_plan",
+            f"{field}.layer must be xltm, ltm, mtm, or stm.",
+        )
+    assert isinstance(layer, str)
+
+    def segment(name: str) -> str | None:
+        raw = target[name]
+        if raw is None:
+            return None
+        return _route_segment(raw, field=f"{field}.{name}")
+
+    tree = segment("tree")
+    branch = segment("branch")
+    leaf = segment("leaf")
+    valid_shape = (
+        (layer == "xltm" and tree is None and branch is None and leaf is None)
+        or (layer == "ltm" and tree is not None and branch is None and leaf is None)
+        or (layer == "mtm" and tree is not None and branch is not None and leaf is None)
+        or (layer == "stm" and tree is not None and branch is not None and leaf is not None)
+    )
+    if not valid_shape:
+        _invalid(
+            "invalid_structured_sweep_plan",
+            f"{field} does not match its layer object shape.",
+        )
+    return StructuredTarget(layer=layer, tree=tree, branch=branch, leaf=leaf)
+
+
+def _structured_target_key(target: StructuredTarget) -> tuple[int, str, str, str]:
+    return (
+        {"xltm": 1, "ltm": 2, "mtm": 3, "stm": 4}[target.layer],
+        target.tree or "",
+        target.branch or "",
+        target.leaf or "",
+    )
+
+
+def _structured_target_path(target: StructuredTarget) -> str:
+    if target.layer == "xltm":
+        return "01 xltm/XLTM.md"
+    if target.layer == "ltm":
+        assert target.tree is not None
+        return f"02 ltm/{target.tree}_LTM.md"
+    if target.layer == "mtm":
+        assert target.tree is not None and target.branch is not None
+        return f"03 mtm/{target.tree}/{target.branch}.md"
+    assert (
+        target.layer == "stm"
+        and target.tree is not None
+        and target.branch is not None
+        and target.leaf is not None
+    )
+    return f"04 stm/{target.tree}/{target.branch}/{target.leaf}.md"
+
+
+def validate_structured_sweep_plan(value: object) -> StructuredSweepPlan:
+    plan = _exact_object(
+        value,
+        {
+            "schema_version",
+            "forest_id",
+            "transaction_id",
+            "date",
+            "changes",
+            "dispositions",
+            "provenance",
+        },
+        code="invalid_structured_sweep_plan",
+    )
+    if plan["schema_version"] != STRUCTURED_SWEEP_PLAN_SCHEMA:
+        _invalid(
+            "invalid_structured_sweep_plan",
+            "Unsupported Structured sweep plan schema.",
+        )
+    transaction_id = _hash(plan["transaction_id"], field="transaction_id")
+    day = _iso_date(plan["date"])
+    raw_changes = _bounded_array(
+        plan["changes"],
+        field="changes",
+        minimum=0,
+        maximum=MAX_STRUCTURED_CHANGES,
+        code="invalid_structured_sweep_plan",
+    )
+    changes: list[StructuredChange] = []
+    change_targets: dict[tuple[int, str, str, str], StructuredChange] = {}
+    for index, raw_change in enumerate(raw_changes):
+        change = _exact_object(
+            raw_change,
+            {
+                "action",
+                "target",
+                "expected_sha256",
+                "body",
+                "source_daily_entry_ids",
+                "reason",
+                "confidence",
+            },
+            code="invalid_structured_sweep_plan",
+        )
+        action = change["action"]
+        if action not in {"create", "replace"}:
+            _invalid(
+                "invalid_structured_sweep_plan",
+                "Structured changes support only create or replace.",
+            )
+        assert isinstance(action, str)
+        target = _structured_target(change["target"], field=f"changes[{index}].target")
+        key = _structured_target_key(target)
+        if key in change_targets:
+            _invalid(
+                "invalid_structured_sweep_plan",
+                "A Structured sweep may change each semantic target only once.",
+            )
+        expected = change["expected_sha256"]
+        if action == "create":
+            if expected is not None:
+                _invalid(
+                    "invalid_structured_sweep_plan",
+                    "A create change must use a null expected_sha256.",
+                )
+            expected_sha256 = None
+        else:
+            expected_sha256 = _hash(expected, field="expected_sha256")
+        confidence = change["confidence"]
+        if confidence not in {"low", "medium", "high"}:
+            _invalid(
+                "invalid_structured_sweep_plan",
+                "confidence must be exactly low, medium, or high.",
+            )
+        assert isinstance(confidence, str)
+        parsed = StructuredChange(
+            action=action,
+            target=target,
+            expected_sha256=expected_sha256,
+            body=_text(
+                change["body"],
+                field="body",
+                maximum=MAX_CONTENT_CHARS,
+                multiline=True,
+            ),
+            source_daily_entry_ids=_identifier_array(
+                change["source_daily_entry_ids"],
+                field="source_daily_entry_ids",
+                minimum=0,
+            ),
+            reason=_text(
+                change["reason"],
+                field="reason",
+                maximum=MAX_TITLE_CHARS * 4,
+                multiline=False,
+            ),
+            confidence=confidence,
+        )
+        changes.append(parsed)
+        change_targets[key] = parsed
+
+    raw_dispositions = _bounded_array(
+        plan["dispositions"],
+        field="dispositions",
+        minimum=0,
+        maximum=MAX_STRUCTURED_DISPOSITIONS,
+        code="invalid_structured_sweep_plan",
+    )
+    dispositions: list[StructuredDisposition] = []
+    disposition_by_id: dict[str, StructuredDisposition] = {}
+    for index, raw_disposition in enumerate(raw_dispositions):
+        disposition = _exact_object(
+            raw_disposition,
+            {"daily_entry_id", "status", "targets", "reason"},
+            code="invalid_structured_sweep_plan",
+        )
+        entry_id = _identifier(
+            disposition["daily_entry_id"],
+            field="daily_entry_id",
+        )
+        if entry_id.casefold() in {value.casefold() for value in disposition_by_id}:
+            _invalid(
+                "invalid_structured_sweep_plan",
+                "Structured dispositions must use unique Daily entry identifiers.",
+            )
+        status = disposition["status"]
+        if status not in {
+            "promoted",
+            "already_covered",
+            "source_only",
+            "promotion_debt",
+        }:
+            _invalid(
+                "invalid_structured_sweep_plan",
+                "Structured disposition status is unsupported.",
+            )
+        assert isinstance(status, str)
+        raw_targets = _bounded_array(
+            disposition["targets"],
+            field="targets",
+            minimum=0,
+            maximum=16,
+            code="invalid_structured_sweep_plan",
+        )
+        targets = tuple(
+            _structured_target(value, field=f"dispositions[{index}].targets")
+            for value in raw_targets
+        )
+        target_keys = tuple(_structured_target_key(target) for target in targets)
+        if len(set(target_keys)) != len(target_keys):
+            _invalid(
+                "invalid_structured_sweep_plan",
+                "One disposition may not repeat a semantic target.",
+            )
+        if status in {"promoted", "already_covered", "promotion_debt"} and not targets:
+            _invalid(
+                "invalid_structured_sweep_plan",
+                "This disposition status requires at least one semantic target.",
+            )
+        if status == "source_only" and targets:
+            _invalid(
+                "invalid_structured_sweep_plan",
+                "A source_only disposition may not name a structured target.",
+            )
+        parsed = StructuredDisposition(
+            daily_entry_id=entry_id,
+            status=status,
+            targets=targets,
+            reason=_text(
+                disposition["reason"],
+                field="reason",
+                maximum=MAX_TITLE_CHARS * 4,
+                multiline=False,
+            ),
+        )
+        dispositions.append(parsed)
+        disposition_by_id[entry_id] = parsed
+
+    for change in changes:
+        key = _structured_target_key(change.target)
+        for entry_id in change.source_daily_entry_ids:
+            disposition = disposition_by_id.get(entry_id)
+            if (
+                disposition is None
+                or disposition.status not in {"promoted", "promotion_debt"}
+                or key not in {
+                    _structured_target_key(target)
+                    for target in disposition.targets
+                }
+            ):
+                _invalid(
+                    "invalid_structured_sweep_plan",
+                    "Every source-bound change must match its exact promoted disposition target.",
+                )
+    for disposition in dispositions:
+        if disposition.status == "promoted" and not any(
+            _structured_target_key(target) in change_targets
+            for target in disposition.targets
+        ):
+            _invalid(
+                "invalid_structured_sweep_plan",
+                "A promoted disposition must name at least one change in this sweep.",
+            )
+
+    provenance_value = _exact_object(
+        plan["provenance"],
+        {
+            "packet_sha256",
+            "result_sha256",
+            "forest_snapshot_sha256",
+            "daily_commit_sha256s",
+        },
+        code="invalid_structured_sweep_plan",
+    )
+    daily_commits = tuple(
+        _hash(item, field="provenance.daily_commit_sha256s")
+        for item in _bounded_array(
+            provenance_value["daily_commit_sha256s"],
+            field="provenance.daily_commit_sha256s",
+            minimum=0,
+            maximum=MAX_DAILY_COMMITS,
+            code="invalid_structured_sweep_plan",
+        )
+    )
+    if tuple(sorted(set(daily_commits))) != daily_commits:
+        _invalid(
+            "invalid_structured_sweep_plan",
+            "daily_commit_sha256s must contain sorted unique hashes.",
+        )
+    provenance = StructuredSweepProvenance(
+        packet_sha256=_hash(
+            provenance_value["packet_sha256"],
+            field="provenance.packet_sha256",
+        ),
+        result_sha256=_hash(
+            provenance_value["result_sha256"],
+            field="provenance.result_sha256",
+        ),
+        forest_snapshot_sha256=_hash(
+            provenance_value["forest_snapshot_sha256"],
+            field="provenance.forest_snapshot_sha256",
+        ),
+        daily_commit_sha256s=daily_commits,
+    )
+    if provenance.result_sha256 != transaction_id:
+        _invalid(
+            "invalid_structured_sweep_plan",
+            "provenance.result_sha256 must equal transaction_id.",
+        )
+    return StructuredSweepPlan(
+        forest_id=_forest_id(plan["forest_id"]),
+        transaction_id=transaction_id,
+        day=day,
+        changes=tuple(changes),
+        dispositions=tuple(dispositions),
+        provenance=provenance,
+    )
+
+
 def apply_daily(
     root: str | os.PathLike[str],
     plan_value: object,
@@ -1221,6 +1593,154 @@ def promote(
             plan_sha256=plan_sha256,
             changes=changes,
             already_applied=bool(plan.promotions) and not changes,
+            limits=limits,
+        )
+
+
+def _structured_poststate_matches(
+    root: Path,
+    plan: StructuredSweepPlan,
+    *,
+    limits: ForestLimits,
+) -> bool:
+    for change in plan.changes:
+        relative = _structured_target_path(change.target)
+        current = _read_optional_document(root, relative, limits=limits)
+        if current != change.body:
+            return False
+    return True
+
+
+def _structured_sweep_changes(
+    root: Path,
+    plan: StructuredSweepPlan,
+    *,
+    limits: ForestLimits,
+) -> list[tuple[str, bytes]]:
+    changes: list[tuple[str, bytes]] = []
+    for change in sorted(
+        plan.changes,
+        key=lambda value: _structured_target_key(value.target),
+    ):
+        relative = _structured_target_path(change.target)
+        route = parse_relative_route(relative)
+        if route.path != relative:
+            raise MemoryForestError(
+                "noncanonical_write_path",
+                "Structured targets must resolve to exact canonical paths.",
+                details={"path": relative},
+            )
+        current = _read_optional_document(root, relative, limits=limits)
+        if change.action == "create":
+            if current is not None:
+                raise MemoryForestError(
+                    "structured_preimage_mismatch",
+                    "A Structured create target already exists.",
+                    details={"path": relative},
+                )
+        else:
+            if current is None or change.expected_sha256 is None:
+                raise MemoryForestError(
+                    "structured_preimage_mismatch",
+                    "A Structured replace target is missing.",
+                    details={"path": relative},
+                )
+            current_sha256 = hashlib.sha256(current.encode("utf-8")).hexdigest()
+            if current_sha256 != change.expected_sha256:
+                raise MemoryForestError(
+                    "structured_preimage_mismatch",
+                    "A Structured replace target changed after model review.",
+                    details={"path": relative},
+                )
+        if current != change.body:
+            changes.append((relative, change.body.encode("utf-8")))
+    return changes
+
+
+def apply_structured_sweep(
+    root: str | os.PathLike[str],
+    plan_value: object,
+    *,
+    limits: ForestLimits = DEFAULT_LIMITS,
+) -> dict[str, object]:
+    plan = validate_structured_sweep_plan(plan_value)
+    canonical_plan = _canonical_json_bytes(plan_value)
+    plan_sha256 = hashlib.sha256(canonical_plan).hexdigest()
+    with maintenance_lock(root) as root_path:
+        _recover_write_journal(root_path, limits=limits)
+        _preflight(root_path, limits=limits)
+        forest_id = load_forest_identity(root_path, limits=limits)
+        if plan.forest_id != forest_id:
+            raise MemoryForestError(
+                "forest_identity_mismatch",
+                "The Structured sweep plan is bound to a different Memory Forest.",
+            )
+        daily_sources = _collect_daily_sources(root_path, limits=limits)
+        bound_commits: set[str] = set()
+        disposition_ids = {
+            disposition.daily_entry_id for disposition in plan.dispositions
+        }
+        for entry_id in disposition_ids:
+            source = daily_sources.get(entry_id.casefold())
+            if source is None:
+                raise MemoryForestError(
+                    "missing_daily_source",
+                    "A Structured disposition source is absent from canonical Daily.",
+                    details={"entry_id": entry_id},
+                )
+            bound_commits.add(source.commit_sha256)
+        if bound_commits != set(plan.provenance.daily_commit_sha256s):
+            raise MemoryForestError(
+                "daily_provenance_mismatch",
+                "Structured provenance does not exactly bind the disposed Daily commits.",
+                details={
+                    "expected_count": len(bound_commits),
+                    "received_count": len(plan.provenance.daily_commit_sha256s),
+                },
+            )
+        receipt = _existing_receipt(
+            root_path,
+            operation="apply-structured",
+            transaction_id=plan.transaction_id,
+            plan_sha256=plan_sha256,
+            forest_id=forest_id,
+        )
+        if receipt is not None:
+            if not _structured_poststate_matches(
+                root_path,
+                plan,
+                limits=limits,
+            ):
+                raise MemoryForestError(
+                    "receipt_state_mismatch",
+                    "The receipt exists but the Structured canonical state has changed.",
+                    details={"transaction_id": plan.transaction_id},
+                )
+            return _success_report(
+                operation="apply-structured",
+                transaction_id=plan.transaction_id,
+                receipt=receipt,
+                already_applied=True,
+                touched=(),
+            )
+        if (
+            structured_forest_snapshot_sha256(root_path, limits=limits)
+            != plan.provenance.forest_snapshot_sha256
+        ):
+            raise MemoryForestError(
+                "structured_snapshot_mismatch",
+                "The Structured forest changed after model review.",
+            )
+        changes = _structured_sweep_changes(root_path, plan, limits=limits)
+        return _execute_write(
+            root_path,
+            operation="apply-structured",
+            forest_id=forest_id,
+            transaction_id=plan.transaction_id,
+            day=plan.day,
+            plan_sha256=plan_sha256,
+            changes=changes,
+            already_applied=bool(plan.changes) and not changes,
             limits=limits,
         )
 
@@ -1777,7 +2297,7 @@ def _read_receipt_path(path: Path) -> tuple[str, bytes, dict[str, object]]:
             "The receipt Memory Forest identity is invalid.",
         )
     operation = parsed.get("operation")
-    if operation not in {"apply-daily", "promote"}:
+    if operation not in {"apply-daily", "promote", "apply-structured"}:
         raise MemoryForestError(
             "invalid_receipt",
             "The receipt operation is unsupported.",
@@ -2060,11 +2580,16 @@ def _bounded_array(
     return cast(list[object], value)
 
 
-def _identifier_array(value: object, *, field: str) -> tuple[str, ...]:
+def _identifier_array(
+    value: object,
+    *,
+    field: str,
+    minimum: int = 1,
+) -> tuple[str, ...]:
     raw = _bounded_array(
         value,
         field=field,
-        minimum=1,
+        minimum=minimum,
         maximum=MAX_SOURCE_IDS,
         code="invalid_write_plan",
     )

@@ -12,17 +12,17 @@ Do not use Life Archive as a dumping ground or as a replacement for current stat
 
 ## 01 XLTM
 
-**Object** - root map and long-horizon anchor.
+**Object** - forest.
 
-XLTM owns the top-level domain map, persistent cross-domain invariants, and strong long-horizon preferences or constraints. It is the first node in each materialized root-first retrieval trail.
+XLTM owns the forest map, persistent cross-tree invariants, and strong long-horizon preferences or constraints. It is the first node in each materialized root-first retrieval trail.
 
 Keep this layer compact. A tactical instruction, one-off fact, or temporary state does not belong here merely because it feels important.
 
 ## 02 LTM
 
-**Object** - durable domain tree.
+**Object** - durable tree.
 
-LTM owns durable knowledge, stable domain contracts, and long-lived thematic bodies. A tree exists when a domain is stable enough to improve future classification and rereading.
+LTM owns durable knowledge, stable tree contracts, and long-lived thematic bodies. A tree exists when a topic is stable enough to improve future classification and rereading.
 
 LTM should point upward to XLTM and downward to its MTM branches. Detailed incidents remain in lower layers.
 
@@ -62,7 +62,7 @@ Raw events can contain untrusted instructions, secrets, or personal data. Keep t
 
 Before writing a record, answer these questions.
 
-1. What domain owns it?
+1. What tree owns it?
 2. What recurring branch owns it?
 3. What is the nearest real parent?
 4. Is this raw source, readable chronology, detailed evidence, recurring state, durable knowledge, or a long-horizon anchor?
@@ -71,18 +71,46 @@ Before writing a record, answer these questions.
 
 If a durable parent does not yet exist, materialize the parent chain before the child. Do not create empty shells just to make the tree look complete.
 
+## Promotion and split decisions
+
+Run these decisions together in one Structured sweep over committed Daily and
+the relevant current XLTM/LTM/MTM/STM bodies.
+
+- Treat meaningful reconstructable detail as an STM candidate, including
+  one-off asks, named entities, corrections, exact state, failures, and
+  verification.
+- Promote recurring and still-live STM flows to an MTM branch. Split a branch
+  when its current center and reread questions are distinct from existing
+  branches.
+- Promote durable themes, stable concerns, enduring preference clusters, and
+  long-lived capability context to an LTM tree. Tree splits are conservative.
+- Promote only identity-level truths, persistent direction, strong preference,
+  and repeated long-horizon classification axes to XLTM. Forest-level changes
+  are the most conservative split.
+- Split leaves actively, branches moderately, and trees conservatively.
+
+If a clear route lacks parents, create the required authority chain in
+parent-before-child order inside the same sweep. This ordering protects the
+canonical graph; it is not a separate parent-first processing architecture.
+
+See [Integrated Structured sweep](integrated-structured-sweep.md).
+
 ## Naming model
 
 A portable forest follows these conventional shapes.
 
 ```text
 01 xltm/XLTM.md
-02 ltm/<domain>_LTM.md
-03 mtm/<domain>/<branch>.md
-04 stm/<domain>/<branch>/<leaf>.md
+02 ltm/<tree>_LTM.md
+03 mtm/<tree>/<branch>.md
+04 stm/<tree>/<branch>/<leaf>.md
 05 daily/YYYY-MM-DD.md
 06 istm/events.jsonl
 00 life_archive/<archive-record>.md
 ```
 
 The CLI validates the selected root. Projects may add stricter naming rules while retaining the same layer ownership and path-safety contract.
+
+Some legacy storage and retrieval surfaces call the tree routing key
+`domain`. That label describes the on-disk grouping key only. It is not a
+fifth structural object. The ontology remains Forest, Tree, Branch, Leaf.

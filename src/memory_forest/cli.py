@@ -11,8 +11,17 @@ from .core import audit_forest, doctor_forest, initialize_forest, validate_fores
 from .errors import MemoryForestError
 from .index import index_forest, route_index, search_index
 from .model import SCHEMA_VERSION
-from .retrieval import read_query_plan_source, retrieve_index
-from .writer import apply_daily, promote, read_plan_source
+from .retrieval import (
+    read_query_plan_source,
+    retrieve_index,
+    structured_context_index,
+)
+from .writer import (
+    apply_daily,
+    apply_structured_sweep,
+    promote,
+    read_plan_source,
+)
 
 
 class JsonArgumentParser(argparse.ArgumentParser):
@@ -112,6 +121,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    context_parser = commands.add_parser(
+        "structured-context",
+        help="Return bounded current Forest bodies for one integrated Structured sweep.",
+    )
+    context_parser.add_argument("root", help="Forest root")
+    context_parser.add_argument("query", help="Literal context query")
+    context_parser.add_argument(
+        "--limit", type=int, default=3, help="Trail limit, 1-10"
+    )
+
     daily_parser = commands.add_parser(
         "apply-daily",
         help="Apply one strict provenance-bound Daily transaction.",
@@ -130,6 +149,16 @@ def build_parser() -> argparse.ArgumentParser:
     promote_parser.add_argument(
         "plan",
         help="Private promotion plan JSON file, or '-' for standard input",
+    )
+
+    structured_parser = commands.add_parser(
+        "apply-structured",
+        help="Apply one integrated whole-Forest Structured sweep.",
+    )
+    structured_parser.add_argument("root", help="Forest root")
+    structured_parser.add_argument(
+        "plan",
+        help="Private Structured sweep plan JSON file, or '-' for standard input",
     )
     return parser
 
@@ -167,12 +196,21 @@ def run_command(arguments: argparse.Namespace) -> tuple[dict[str, object], int]:
             query_plan=query_plan,
             limit=arguments.limit,
         )
+    elif command == "structured-context":
+        result = structured_context_index(
+            arguments.root,
+            arguments.query,
+            limit=arguments.limit,
+        )
     elif command == "apply-daily":
         plan = read_plan_source(arguments.plan, stdin=sys.stdin.buffer)
         result = apply_daily(arguments.root, plan)
     elif command == "promote":
         plan = read_plan_source(arguments.plan, stdin=sys.stdin.buffer)
         result = promote(arguments.root, plan)
+    elif command == "apply-structured":
+        plan = read_plan_source(arguments.plan, stdin=sys.stdin.buffer)
+        result = apply_structured_sweep(arguments.root, plan)
     else:
         raise MemoryForestError(
             "unknown_command",

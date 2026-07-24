@@ -17,9 +17,10 @@ Memory Forest is an alpha reference implementation. The roadmap describes direct
 - caller-owned OAuth and API gateway boundary
 - English and Korean usage documentation
 - standalone documentation and companion skill
-- strict provenance-bound Daily Plan and Promotion Plan v1 protocols
-- local network-free `apply-daily` and `promote` transaction writers
-- parent-first LTM/MTM/STM materialization with adjacent parent-child links
+- strict provenance-bound Daily Plan, Structured Sweep Plan, and compatibility
+  Promotion Plan v1 protocols
+- local network-free `apply-daily` and `apply-structured` transaction writers
+- integrated XLTM/LTM/MTM/STM materialization with adjacent parent-child links
 - private write receipts, exact retry idempotency, and handled-failure rollback
 
 ## Candidate next steps

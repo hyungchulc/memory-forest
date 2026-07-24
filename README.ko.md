@@ -26,8 +26,8 @@ Memory Forest는 기억을 번호가 붙은 파일 트리에 나눠 저장하고
 05 Daily 읽을 수 있는 최근 source 기록
 04 STM   세부 evidence와 단기 실행 맥락
 03 MTM   반복되는 branch와 중기 상태
-02 LTM   오래 유지되는 domain tree
-01 XLTM  root map과 장기 anchor
+02 LTM   오래 유지되는 tree
+01 XLTM  forest와 장기 anchor
 00 Life Archive  재사용할 수 있는 과거 기록
 ```
 
@@ -69,28 +69,36 @@ memory-forest retrieve "$demo_root" "telemetry replay"
 
 ### provenance가 고정된 로컬 쓰기
 
-v0.3에는 network를 사용하지 않는 두 writer가 추가되었습니다.
+v0.3에는 network를 사용하지 않는 세 가지 쓰기 명령이 있습니다. 통합
+Structured 경로가 기준이며, `promote`는 제한된 leaf promotion을 위한
+호환 명령으로 남아 있습니다.
 
 ```sh
-chmod 600 daily-plan.json promotion-plan.json
+chmod 600 daily-plan.json structured-sweep-plan.json
 memory-forest apply-daily "$demo_root" daily-plan.json
-memory-forest promote "$demo_root" promotion-plan.json
+memory-forest apply-structured "$demo_root" structured-sweep-plan.json
 ```
 
-`apply-daily`는 canonical Daily 파일만 쓰고, `promote`는 raw path가 아닌
-semantic domain/branch/leaf route만 받습니다. Writer는 parent를 먼저 만들고,
-인접 parent/child link를 갱신하며, STM leaf에 idempotent update block을
-추가합니다. 처리 중 validation, audit, index가 실패하면 이전 canonical
-파일과 index로 rollback합니다. Receipt는 세 검증이 모두 끝난 뒤에만
-`.memory-forest/receipts/` 아래에 생성됩니다. 두 명령은 같은 sibling
-maintenance lock을 직접 획득하고, `init`이 만든 private `forest_id`에
-plan을 묶으므로 같은 경로의 forest가 교체되어도 실패하도록 닫혀 있습니다.
-`forest_id`가 없는 기존 schema-v1 forest는 read-only validation과 retrieval은
-계속 가능하지만, v0.3 writer는 지원되는 migration 전까지 거부하며 기존
-configuration을 자동으로 고치지 않습니다.
+`apply-daily`는 canonical Daily 파일만 씁니다. `structured-context`는 한 번의
+통합 검토에 필요한 현재 XLTM/LTM/MTM/STM 본문을 제한된 크기로 열고 각
+본문의 hash를 함께 반환합니다. `apply-structured`는 네 계층의 semantic
+target만 받아 생성 또는 전체 본문 교체를 하나의 transaction으로 적용한 뒤
+validation, audit, 파생 index를 한 번만 갱신합니다. 계층은 XLTM Forest,
+LTM Tree, MTM Branch, STM Leaf로 고정됩니다. Structured target의 `tree`는
+LTM routing key이며 별도 계층이 아닙니다.
 
-정확한 형식은 [Daily Plan v1](docs/daily-plan.schema.json), [Promotion Plan
-v1](docs/promotion-plan.schema.json), [Write Receipt
+쓰기 명령은 같은 sibling maintenance lock을 직접 획득하고, symlink와
+case-fold 충돌을 거부하며, 처리 중 실패하면 이전 canonical 파일과 index로
+rollback합니다. Receipt는 validation, audit, index가 모두 끝난 뒤에만
+`.memory-forest/receipts/` 아래에 생성됩니다. Plan은 `init`이 만든 private
+`forest_id`에 묶이므로 같은 경로의 forest가 교체되어도 실패하도록 닫혀
+있습니다. `forest_id`가 없는 기존 schema-v1 forest는 read-only validation과
+retrieval은 계속 가능하지만, v0.3 writer는 지원되는 migration 전까지
+거부하며 기존 configuration을 자동으로 고치지 않습니다.
+
+정확한 형식은 [Integrated Structured sweep](docs/integrated-structured-sweep.md),
+[Daily Plan v1](docs/daily-plan.schema.json), [Structured Sweep Plan
+v1](docs/structured-sweep-plan.schema.json), [Write Receipt
 v1](docs/write-receipt.schema.json), [CLI reference](docs/cli.md)에 있습니다.
 
 ## root-first retrieve
@@ -227,9 +235,9 @@ Core는 source system을 직접 수집하거나 semantic promotion을 판단하�
 
 - 현재 구현된 deterministic maintenance는 하나의 정확한 비공개 root를
   잠근 뒤 validate, audit, atomic index rebuild를 수행합니다.
-- integrator는 bounded source admission, conflict 처리, semantic review를
-  거쳐 strict plan을 만들고, 구현된 `apply-daily` 또는 `promote` writer가
-  lock, rollback, validate, audit, index, receipt를 담당합니다.
+- integrator는 bounded source admission, conflict 처리, 계층과 구조 판단을
+  거쳐 strict plan을 만들고, 구현된 `apply-daily` 또는 `apply-structured`
+  writer가 lock, rollback, validate, audit, index, receipt를 담당합니다.
 
 저장소에는 공통 maintenance wrapper, crontab 예제, 사용자용 macOS launchd
 template, 범위를 제한한 Codex Scheduled Task prompt가 들어 있습니다.
@@ -242,8 +250,9 @@ account와 model processing boundary를 사용합니다. 외부 처리 없이 �
 
 ## 현재 상태
 
-Memory Forest는 alpha software입니다. v0.3는 deterministic local core,
-root-first retrieval, strict write plan과 receipt, synthetic multiscript
+Memory Forest는 alpha software입니다. v0.3는 strict receipt-backed Daily
+application, 제한된 현재 Forest context, 한 번의 통합 XLTM/LTM/MTM/STM
+sweep, deterministic root-first retrieval, portable contract, synthetic
 fixture를 제공합니다. unattended high-stakes decision-making 용도로 완성된
 제품은 아닙니다.
 

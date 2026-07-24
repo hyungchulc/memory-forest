@@ -164,6 +164,27 @@ normal completion without a successful receipt for that exact turn.
 The gate never auto-indexes, repairs, scans another root, returns bodies, or
 uses the network. Route and retrieve metadata remain private and untrusted.
 
+## Companion projects
+
+Memory Forest owns the canonical layer and retrieval contracts. Source
+collection and retrieval evaluation are separated into focused companion
+projects.
+
+- [Codex ISTM for macOS](https://github.com/hyungchulc/codex-istm-macos)
+  incrementally collects local Codex conversation sessions into ISTM and
+  produces bounded Daily digests with launchd examples.
+- [macOS ISTM Context](https://github.com/hyungchulc/mac-istm-context) collects
+  local Apple Mail, Notification Center, Reminders, and Calendar context into a
+  separate private ISTM store.
+- [Memory Retrieval Lab](https://github.com/hyungchulc/memory-retrieval-lab)
+  measures retrieval quality with synthetic fixtures, reproducible metrics,
+  multilingual cases, and ranker adapters.
+
+The reference environment used GPT-5.6 Sol with reasoning effort xhigh on
+2026-07-24. The collectors and deterministic baselines are model-independent.
+Read [Daily and ISTM companion projects](docs/daily-and-istm-companions.md) for
+the exact repository boundaries and bounded Daily contract.
+
 ## Provenance and promotion
 
 Promotion is an adjacent-layer, evidence-preserving operation.
@@ -224,6 +245,7 @@ Candidate directions include measured multilingual routing evaluation, optional 
 |---|---|
 | `src/memory_forest/` | local CLI and reference implementation |
 | `docs/` | architecture, contracts, privacy boundary, and integration guidance |
+| `docs/daily-and-istm-companions.md` | bounded Daily contract and companion repository boundaries |
 | `examples/synthetic-forest/` | fictional 00-06 forest with no private identifiers |
 | `examples/automation/` | cron, launchd, and Codex Scheduled Task maintenance examples |
 | `examples/memory-forest-retrieve/` | metadata-only mandatory consultation gate and prompt |

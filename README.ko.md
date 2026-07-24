@@ -162,6 +162,27 @@ Gate는 자동 index, repair, 다른 root scan, body 반환, network 호출을 �
 않습니다. Route와 retrieve metadata도 비공개 untrusted data로 다뤄야
 합니다.
 
+## 함께 쓰는 프로젝트
+
+Memory Forest는 canonical layer와 retrieval 계약을 맡고, source 수집과
+retrieval 평가는 목적별 저장소로 분리합니다.
+
+- [Codex ISTM for macOS](https://github.com/hyungchulc/codex-istm-macos)는
+  macOS의 로컬 Codex 대화를 ISTM으로 수집하고, 크기가 제한된 Daily
+  digest와 launchd 예제를 제공합니다.
+- [macOS ISTM Context](https://github.com/hyungchulc/mac-istm-context)는
+  Apple Mail, Notification Center, Reminders, Calendar의 로컬 맥락을 별도
+  비공개 ISTM으로 수집합니다.
+- [Memory Retrieval Lab](https://github.com/hyungchulc/memory-retrieval-lab)은
+  가상 fixture, 반복 가능한 지표, 다국어 사례, ranker adapter로 검색
+  품질을 측정합니다.
+
+이 프로젝트들의 기준 환경은 2026년 7월 24일 기준 GPT-5.6 Sol,
+reasoning effort xhigh입니다. 수집과 deterministic baseline 자체는 model에
+의존하지 않습니다. 저장소 경계와 Daily 크기 제한 계약은
+[Daily and ISTM companion projects](docs/daily-and-istm-companions.md)에
+정리되어 있습니다.
+
 ## 자동화
 
 POSIX cron, macOS LaunchAgent, Codex Scheduled Task로 검증과 비공개 파생

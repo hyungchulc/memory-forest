@@ -22,7 +22,8 @@ Memory Forest is an alpha reference implementation. The roadmap describes direct
 
 ### Retrieval evaluation
 
-- publish synthetic routing fixtures and repeatable quality metrics
+- keep the core retrieval contracts versioned and compatible with the separate [Memory Retrieval Lab](https://github.com/hyungchulc/memory-retrieval-lab)
+- publish synthetic routing fixtures and repeatable quality metrics in the Lab
 - expand measured multilingual and mixed-language evaluation beyond the current multiscript regression fixture
 - measure root-first routing separately from body ranking
 - add conflict and stale-source evaluation cases
@@ -53,6 +54,7 @@ Memory Forest is an alpha reference implementation. The roadmap describes direct
 - documented helper adapters for agent runtimes
 - editor and knowledge-tool integrations that preserve the local source boundary
 - machine-readable route result schema with versioned compatibility tests
+- keep macOS Codex-only and Apple-context ISTM collection in their source-specific companion repositories
 
 ## Non-goals
 

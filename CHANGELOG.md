@@ -11,10 +11,13 @@ All notable changes to Memory Forest are documented in this file. The project fo
 - future-state automation diagram showing the implemented index lane and the external reviewed-promotion lane
 - regression checks for automation templates, wrapper behavior, and self-contained SVG assets
 - Memory Forest Retrieve integration profile with a metadata-only per-turn gate, advisory system prompt, companion skill, and regression tests
+- companion-project guide separating Codex conversation ingestion, Apple context collection, and retrieval evaluation from the canonical core
+- bounded Daily contract covering stable source identities, compact provenance, cursor commits, verified archival, and fail-closed partial states
 
 ### Changed
 
 - retrieval diagram now uses ASCII-only visible labels and an explicit cross-platform font stack to avoid missing-glyph rendering
+- retrieval evaluation roadmap now points to a dedicated companion Lab while keeping the core route and retrieve contracts authoritative
 
 ## 0.2.0 - 2026-07-22
 

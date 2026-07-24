@@ -6,6 +6,12 @@ All notable changes to Memory Forest are documented in this file. The project fo
 
 ### Added
 
+- end-to-end retrieval guide covering untrusted query intake, strict
+  QueryPlan probes, deterministic root-first trails, explicit body access,
+  freshness/conflict/no-evidence handling, Daily/ISTM fallback, and external
+  ranker boundaries
+- regression checks that require the public retrieval guide and resolve its
+  repository-local documentation links
 - scheduler-neutral automation guide with explicit deterministic-maintenance and semantic-promotion boundaries
 - runnable lock-protected maintenance wrapper plus POSIX cron, macOS launchd, and Codex Scheduled Task examples
 - future-state automation diagram showing the implemented index lane and the external reviewed-promotion lane

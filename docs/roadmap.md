@@ -27,6 +27,8 @@ Memory Forest is an alpha reference implementation. The roadmap describes direct
 - expand measured multilingual and mixed-language evaluation beyond the current multiscript regression fixture
 - measure root-first routing separately from body ranking
 - add conflict and stale-source evaluation cases
+- keep the public retrieval guide aligned with the deterministic core and the
+  separate Lab evaluation contract
 
 ### Derived graph views
 

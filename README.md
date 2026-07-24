@@ -57,7 +57,9 @@ Capture moves upward from recent evidence toward durable structure. The v0.2 `re
 
 ![Fictional root-first retrieval trail](docs/assets/memory-forest-retrieval.svg)
 
-See [Architecture](docs/architecture.md) and [Layer contracts](docs/layers.md) for the full model.
+See the [end-to-end retrieval guide](docs/retrieval-guide.md),
+[Architecture](docs/architecture.md), and [Layer contracts](docs/layers.md) for
+the full model.
 
 ## Layer map
 
@@ -245,6 +247,7 @@ Candidate directions include measured multilingual routing evaluation, optional 
 |---|---|
 | `src/memory_forest/` | local CLI and reference implementation |
 | `docs/` | architecture, contracts, privacy boundary, and integration guidance |
+| `docs/retrieval-guide.md` | query intake, deterministic retrieval, explicit body boundary, and integration limits |
 | `docs/daily-and-istm-companions.md` | bounded Daily contract and companion repository boundaries |
 | `examples/synthetic-forest/` | fictional 00-06 forest with no private identifiers |
 | `examples/automation/` | cron, launchd, and Codex Scheduled Task maintenance examples |

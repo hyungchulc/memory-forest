@@ -31,6 +31,13 @@ flowchart LR
 
 Retrieval globally ranks bounded lexical matches, then materializes each selected match from the root map down to the smallest canonical owner. Daily and ISTM are chronology and provenance fallbacks when a structured record is not enough.
 
+The core never performs that fallback implicitly: `retrieve` indexes and ranks
+only XLTM through STM. A caller may explicitly open a bounded Daily or ISTM
+source after it has inspected the structured route and applied its own
+authorization, freshness, and privacy policy. See the [end-to-end retrieval
+guide](retrieval-guide.md) for the query, body, conflict, and external-ranker
+boundaries.
+
 The v0.2 `retrieve` operation implements the structured part of this method. Literal matches from the original query and optional validated probes are aggregated into root, domain, branch, and leaf evidence. A trail containing direct original-query evidence always ranks ahead of a plan-only trail. Probes can expand recall and influence ordering within that trust boundary, but cannot override an explicit direct match. Candidate selection is then materialized in canonical order from XLTM through LTM and MTM to STM. An XLTM-only match stays root-only rather than expanding across every domain. A domain or branch with no deeper owner can also produce a partial trail; a complete trail ends at STM. Selected files are reopened and hash-checked before metadata is emitted. Bodies are discarded and never included in `retrieve` output.
 
 `route` remains the v0.1-compatible bounded flat FTS query over relative paths and titles. `search` retains its separate explicit body boundary.
@@ -103,6 +110,11 @@ Life Archive may retain nonadjacent source paths as plain provenance fields, but
 The deterministic core does not translate, embed, or call a model. It accepts an optional versioned QueryPlan from a caller. The plan may contain only bounded query strings. Paths, bodies, credentials, provider settings, and instructions are not part of the protocol.
 
 An OAuth or API gateway can generate or obtain those probes, but it remains responsible for identity, authorization, root selection, tokens, network calls, model policy, and retention. The core validates the plan as untrusted data and uses accepted probes only as additive lexical evidence. See [OAuth and API integration](oauth-api-integration.md).
+
+Embeddings, aliases, semantic expansion, hybrid candidate fusion, and external
+reranking are likewise integration choices, not core behavior. They may add
+recall or ranking evidence outside the deterministic route contract but cannot
+change canonical parent ownership or bypass the explicit body boundary.
 
 This design can improve cross-language recall when useful translations or variants are supplied. It does not imply universal language understanding. SQLite tokenization, content coverage, morphology, and planner quality remain measurable limits.
 

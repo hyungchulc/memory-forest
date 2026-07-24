@@ -83,6 +83,12 @@ memory-forest retrieve "$demo_root" "telemetry replay"
 
 각 node에는 상대 경로, 계층, title, SHA-256, size, modification time이 들어갑니다. 본문은 들어가지 않습니다. `retrieve`는 선택된 파일을 로컬에서 다시 열어 hash만 확인한 뒤 본문을 버립니다. index를 만든 뒤 해당 파일이 바뀌었다면 `index_stale`로 중단하고 재색인을 요구합니다.
 
+입력 경계부터 QueryPlan, deterministic 후보 순위, raw Daily/ISTM fallback,
+body를 여는 시점, 외부 hybrid ranker의 책임까지는
+[end-to-end retrieval guide](docs/retrieval-guide.md)에 자세히 설명되어 있습니다.
+이 문서는 portable core 계약이며, 특정 application의 alias 규칙이나 hybrid
+score를 core 동작으로 주장하지 않습니다.
+
 ## 영어·한국어와 다른 Unicode query
 
 로컬 코어는 SQLite FTS5의 Unicode-aware lexical matching을 사용합니다. indexed content에 같은 표현이 있다면 영어, 한국어, Japanese, Arabic, accented Latin 등 여러 script를 직접 검색할 수 있습니다.

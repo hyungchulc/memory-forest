@@ -210,6 +210,19 @@ class AutomationExampleTests(unittest.TestCase):
                                 value.startswith(("http:", "https:", "data:"))
                             )
 
+    def test_retrieval_card_titles_use_bounded_lines(self):
+        root = ET.parse(SVG_ASSETS[0]).getroot()
+        title_lines = [
+            "".join(element.itertext()).strip()
+            for element in root.iter()
+            if element.attrib.get("class") == "card-title"
+        ]
+        self.assertTrue(title_lines)
+        self.assertTrue(
+            all(len(line) <= 16 for line in title_lines),
+            title_lines,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

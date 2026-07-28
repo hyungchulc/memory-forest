@@ -264,4 +264,4 @@ make check
 
 ## License
 
-[MIT License](LICENSE)로 공개합니다.
+[GNU General Public License v3.0](LICENSE)으로 공개합니다.

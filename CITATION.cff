@@ -9,7 +9,7 @@ authors:
     given-names: Hyungchul
 repository-code: "https://github.com/hyungchulc/memory-forest"
 url: "https://github.com/hyungchulc/memory-forest"
-license: MIT
+license: GPL-3.0-only
 abstract: >-
   A local, provenance-aware filesystem architecture and reference CLI for
   route-first retrieval in long-running AI agents.

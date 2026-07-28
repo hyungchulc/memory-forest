@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/hyungchulc/memory-forest/actions/workflows/ci.yml/badge.svg)](https://github.com/hyungchulc/memory-forest/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/license-GPLv3-2EA44F.svg)](LICENSE)
 [![Local-first](https://img.shields.io/badge/runtime-local--first%20%7C%20no%20network-555555.svg)](docs/privacy-and-trust.md)
 
 Memory Forest organizes evidence into a numbered filesystem, preserves where claims came from, and returns routes before it returns memory bodies. Structured records stay human-readable in Markdown, while raw chronology can remain bounded JSONL. Local indexes are derived and replaceable.
@@ -315,4 +315,5 @@ Security issues should follow [SECURITY.md](SECURITY.md). Community participatio
 
 ## License
 
-Memory Forest is released under the [MIT License](LICENSE).
+Memory Forest is released under the [GNU General Public License
+v3.0](LICENSE).

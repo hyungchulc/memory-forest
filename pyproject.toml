@@ -8,7 +8,7 @@ version = "0.3.0"
 description = "A local, provenance-aware memory architecture for long-running AI agents"
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MIT"
+license = "GPL-3.0-only"
 license-files = ["LICENSE"]
 authors = [
   { name = "Hyungchul Choi" },

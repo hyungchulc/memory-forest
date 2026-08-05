@@ -8,6 +8,7 @@ from .core import (
 from .errors import MemoryForestError
 from .index import index_forest, route_index, search_index
 from .model import Layer, Route, immediate_parent_path, parse_layer, parse_relative_route
+from .promotion import promote_memory
 from .retrieval import QueryPlan, retrieve_index, validate_query_plan
 from .safety import DEFAULT_LIMITS, ForestLimits
 
@@ -30,6 +31,7 @@ __all__ = [
     "inspect_forest",
     "parse_layer",
     "parse_relative_route",
+    "promote_memory",
     "route_index",
     "retrieve_index",
     "search_index",

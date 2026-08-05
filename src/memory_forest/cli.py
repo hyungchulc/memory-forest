@@ -11,6 +11,7 @@ from .core import audit_forest, doctor_forest, initialize_forest, validate_fores
 from .errors import MemoryForestError
 from .index import index_forest, route_index, search_index
 from .model import SCHEMA_VERSION
+from .promotion import promote_memory
 from .retrieval import read_query_plan_source, retrieve_index
 
 
@@ -76,6 +77,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     index_parser.add_argument("root", help="Forest root")
 
+    promote_parser = commands.add_parser(
+        "promote", help="Promote a selected memory into its canonical higher-layer owner."
+    )
+    promote_parser.add_argument("root", help="Forest root")
+    promote_parser.add_argument("source_path", help="Source path inside the forest")
+    promote_parser.add_argument(
+        "--to", required=True, choices=("mtm", "ltm", "xltm"), help="Target layer"
+    )
+    promote_parser.add_argument(
+        "--allow-skip",
+        action="store_true",
+        help="Permit promotion through each intermediate owner to a non-adjacent layer.",
+    )
+
     route_parser = commands.add_parser(
         "route", help="Search route metadata without returning memory bodies."
     )
@@ -125,6 +140,13 @@ def run_command(arguments: argparse.Namespace) -> tuple[dict[str, object], int]:
         result = audit_forest(arguments.root)
     elif command == "index":
         result = index_forest(arguments.root)
+    elif command == "promote":
+        result = promote_memory(
+            arguments.root,
+            arguments.source_path,
+            to_layer=arguments.to,
+            allow_skip=arguments.allow_skip,
+        )
     elif command == "route":
         result = route_index(arguments.root, arguments.query, limit=arguments.limit)
     elif command == "search":

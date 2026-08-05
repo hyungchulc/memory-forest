@@ -12,7 +12,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from memory_forest.cli import main
-from memory_forest.core import audit_forest, initialize_forest, validate_forest
+from memory_forest.core import (
+    audit_forest,
+    health_forest,
+    initialize_forest,
+    validate_forest,
+)
 from memory_forest.errors import MemoryForestError
 from memory_forest.index import index_forest, route_index, search_index
 from memory_forest.model import (
@@ -67,6 +72,29 @@ class MemoryForestCoreTests(unittest.TestCase):
         self.assertTrue(audit["ok"], audit)
         self.assertEqual(validation["summary"]["documents"], 10)
         self.assertGreaterEqual(audit["summary"]["links"], 10)
+
+    def test_health_reports_balance_metadata_gaps_and_duplicate_candidates(self):
+        report = health_forest(self.root, duplicate_threshold=0.5)
+        self.assertTrue(report["ok"], report)
+        self.assertEqual(report["operation"], "health")
+        self.assertEqual(
+            sum(layer["documents"] for layer in report["layers"].values()),
+            10,
+        )
+        self.assertIn("metadata_gaps", report["freshness"])
+        self.assertIsInstance(report["duplicate_candidates"], list)
+
+    def test_health_rejects_unsafe_similarity_threshold(self):
+        with self.assertRaises(MemoryForestError) as raised:
+            health_forest(self.root, duplicate_threshold=0.2)
+        self.assertEqual(raised.exception.code, "invalid_duplicate_threshold")
+
+    def test_health_cli_is_read_only_and_emits_json(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            exit_code = main(["health", str(self.root)])
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(json.loads(output.getvalue())["operation"], "health")
 
     def test_index_route_and_explicit_body_boundary(self):
         indexed = index_forest(self.root)

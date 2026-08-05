@@ -1,6 +1,7 @@
 from .core import (
     audit_forest,
     doctor_forest,
+    health_forest,
     initialize_forest,
     inspect_forest,
     validate_forest,
@@ -24,6 +25,7 @@ __all__ = [
     "__version__",
     "audit_forest",
     "doctor_forest",
+    "health_forest",
     "index_forest",
     "immediate_parent_path",
     "initialize_forest",

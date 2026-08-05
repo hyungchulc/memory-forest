@@ -8,12 +8,15 @@ import posixpath
 import re
 import sqlite3
 import stat
+from collections import Counter
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path, PurePosixPath
 from typing import Any, Final
 
 from .errors import MemoryForestError
 from .model import (
+    LAYERS,
     LAYER_DIRECTORY_NAMES,
     SCHEMA_VERSION,
     Route,
@@ -39,6 +42,8 @@ CONFIG_FILENAME: Final[str] = "forest.json"
 WIKILINK_RE: Final[re.Pattern[str]] = re.compile(r"\[\[([^\]\n]+)\]\]")
 DEFAULT_QUERY_PLAN_MAX_PROBES: Final[int] = 8
 MAX_QUERY_PLAN_PROBES: Final[int] = 16
+_FRONTMATTER_RE: Final[re.Pattern[str]] = re.compile(r"\A---\s*\n(.*?)\n---\s*(?:\n|\Z)", re.DOTALL)
+_SEMANTIC_TOKEN_RE: Final[re.Pattern[str]] = re.compile(r"[^\W_]{2,}", re.UNICODE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +74,7 @@ class Document:
     sha256: str
     size: int
     mtime_ns: int
+    metadata: dict[str, str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +113,34 @@ class Inspection:
 @dataclass(frozen=True, slots=True)
 class RetrievalConfig:
     query_plan_max_probes: int = DEFAULT_QUERY_PLAN_MAX_PROBES
+
+
+def _extract_frontmatter(body: str) -> dict[str, str]:
+    match = _FRONTMATTER_RE.match(body)
+    if match is None:
+        return {}
+    metadata: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        key, separator, value = line.partition(":")
+        if separator and key.strip() and value.strip():
+            metadata[key.strip().casefold()] = value.strip().strip("\"'")
+    return metadata
+
+
+def _semantic_token_vector(body: str) -> Counter[str]:
+    without_frontmatter = _FRONTMATTER_RE.sub("", body, count=1)
+    normalized = re.sub(r"\[\[([^\]]+)\]\]", r"\1", without_frontmatter.casefold())
+    return Counter(_SEMANTIC_TOKEN_RE.findall(normalized))
+
+
+def _cosine_similarity(left: Counter[str], right: Counter[str]) -> float:
+    if not left or not right:
+        return 0.0
+    shared = left.keys() & right.keys()
+    numerator = sum(left[token] * right[token] for token in shared)
+    left_norm = math.sqrt(sum(value * value for value in left.values()))
+    right_norm = math.sqrt(sum(value * value for value in right.values()))
+    return numerator / (left_norm * right_norm) if left_norm and right_norm else 0.0
 
 
 def initialize_forest(
@@ -267,6 +301,7 @@ def inspect_forest(
                 sha256=hashlib.sha256(body.encode("utf-8")).hexdigest(),
                 size=scanned.size,
                 mtime_ns=scanned.mtime_ns,
+                metadata=_extract_frontmatter(body),
             )
         )
     issues.extend(_parent_chain_issues(documents))
@@ -299,6 +334,117 @@ def audit_forest(
     limits: ForestLimits = DEFAULT_LIMITS,
 ) -> dict[str, object]:
     return inspect_forest(root, audit_links=True, limits=limits).report("audit")
+
+
+def health_forest(
+    root: str | os.PathLike[str],
+    *,
+    duplicate_threshold: float = 0.72,
+    limits: ForestLimits = DEFAULT_LIMITS,
+) -> dict[str, object]:
+    """Return a read-only maintenance report for memory balance and freshness.
+
+    Similarity candidates are deliberately advisory: the local token-cosine
+    heuristic never merges or deletes canonical memories.
+    """
+    if not 0.5 <= duplicate_threshold <= 1.0:
+        raise MemoryForestError(
+            "invalid_duplicate_threshold",
+            "The duplicate threshold must be between 0.5 and 1.0.",
+            details={"threshold": duplicate_threshold},
+        )
+    inspection = inspect_forest(root, audit_links=True, limits=limits)
+    layer_counts: Counter[str] = Counter()
+    layer_bytes: Counter[str] = Counter()
+    metadata_gaps: list[dict[str, object]] = []
+    today = date.today()
+    dated_documents: list[date] = []
+    for document in inspection.documents:
+        layer = document.route.layer.name
+        layer_counts[layer] += 1
+        layer_bytes[layer] += document.size
+        if layer == "istm":
+            continue
+        metadata = document.metadata
+        missing = [
+            field
+            for field in ("status", "reviewed")
+            if not metadata.get(field)
+        ]
+        if not (metadata.get("updated") or metadata.get("date")):
+            missing.append("updated_or_date")
+        if missing:
+            metadata_gaps.append({"missing": missing, "path": document.route.path})
+        for field in ("reviewed", "updated", "date"):
+            raw = metadata.get(field)
+            if raw:
+                try:
+                    dated_documents.append(date.fromisoformat(raw))
+                    break
+                except ValueError:
+                    continue
+
+    duplicate_candidates: list[dict[str, object]] = []
+    vectors = {
+        document.route.path: _semantic_token_vector(document.body)
+        for document in inspection.documents
+        if document.route.layer.name != "istm"
+    }
+    comparable = [document for document in inspection.documents if document.route.path in vectors]
+    for index, left in enumerate(comparable):
+        for right in comparable[index + 1 :]:
+            if left.sha256 == right.sha256:
+                similarity = 1.0
+            else:
+                similarity = _cosine_similarity(
+                    vectors[left.route.path],
+                    vectors[right.route.path],
+                )
+            if similarity >= duplicate_threshold:
+                duplicate_candidates.append(
+                    {
+                        "left": left.route.path,
+                        "right": right.route.path,
+                        "similarity": round(similarity, 4),
+                    }
+                )
+    duplicate_candidates.sort(
+        key=lambda item: (-float(item["similarity"]), str(item["left"]), str(item["right"]))
+    )
+    total_documents = len(inspection.documents)
+    total_bytes = sum(layer_bytes.values())
+    stm_documents = layer_counts["stm"]
+    stm_bytes = layer_bytes["stm"]
+    latest = max(dated_documents).isoformat() if dated_documents else None
+    return {
+        "duplicate_candidates": duplicate_candidates,
+        "freshness": {
+            "latest_review_or_update": latest,
+            "metadata_gaps": metadata_gaps,
+            "report_date": today.isoformat(),
+        },
+        "layers": {
+            layer: {
+                "bytes": layer_bytes[layer],
+                "byte_share": round(layer_bytes[layer] / total_bytes, 4) if total_bytes else 0.0,
+                "documents": layer_counts[layer],
+                "document_share": round(layer_counts[layer] / total_documents, 4)
+                if total_documents
+                else 0.0,
+            }
+            for _, layer in LAYERS
+        },
+        "ok": inspection.ok,
+        "operation": "health",
+        "recommendations": {
+            "review_metadata_gaps": len(metadata_gaps),
+            "review_semantic_duplicates": len(duplicate_candidates),
+            "review_stm_balance": stm_documents > total_documents / 2
+            or stm_bytes > total_bytes / 2,
+        },
+        "root": str(inspection.root),
+        "schema_version": SCHEMA_VERSION,
+    }
 
 
 def doctor_forest(root: str | os.PathLike[str]) -> dict[str, object]:

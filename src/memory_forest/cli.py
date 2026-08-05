@@ -7,7 +7,13 @@ from collections.abc import Sequence
 from typing import Any, NoReturn
 
 from . import __version__
-from .core import audit_forest, doctor_forest, initialize_forest, validate_forest
+from .core import (
+    audit_forest,
+    doctor_forest,
+    health_forest,
+    initialize_forest,
+    validate_forest,
+)
 from .errors import MemoryForestError
 from .index import index_forest, route_index, search_index
 from .model import SCHEMA_VERSION
@@ -71,6 +77,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     audit_parser.add_argument("root", help="Forest root")
 
+    health_parser = commands.add_parser(
+        "health",
+        help="Report layer balance, freshness metadata gaps, and semantic duplicates.",
+    )
+    health_parser.add_argument("root", help="Forest root")
+    health_parser.add_argument(
+        "--duplicate-threshold",
+        type=float,
+        default=0.72,
+        help="Advisory cosine-similarity threshold, 0.5-1.0",
+    )
+
     index_parser = commands.add_parser(
         "index", help="Atomically build the local SQLite FTS5 index."
     )
@@ -123,6 +141,11 @@ def run_command(arguments: argparse.Namespace) -> tuple[dict[str, object], int]:
         result = validate_forest(arguments.root)
     elif command == "audit":
         result = audit_forest(arguments.root)
+    elif command == "health":
+        result = health_forest(
+            arguments.root,
+            duplicate_threshold=arguments.duplicate_threshold,
+        )
     elif command == "index":
         result = index_forest(arguments.root)
     elif command == "route":

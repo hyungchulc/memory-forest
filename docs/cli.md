@@ -47,6 +47,18 @@ python scripts/audit_public_release.py --root .
 
 That repository audit is for maintainers. It scans public files for common secret and identifier patterns and does not inspect a private forest.
 
+## health
+
+```text
+memory-forest health ROOT [--duplicate-threshold 0.72]
+```
+
+Produces a read-only maintenance report with document and byte share by layer,
+missing `status` / `reviewed` / date metadata, and advisory semantic-duplicate
+candidates. Duplicate detection is a deterministic local token-cosine heuristic:
+it prepares a review queue but never merges, promotes, supersedes, or deletes
+canonical memories.
+
 ## index
 
 ```sh
